@@ -1,5 +1,5 @@
 <!--
-  Country List v1.3.4
+  Country List v1.4.0
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.3.4</title>
+<title>Country List v1.4.0</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -183,6 +183,25 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 .bok{background:var(--green-dim);border:1px solid var(--green);border-radius:5px;padding:6px 13px;color:var(--text);font-size:12px;cursor:pointer;font-weight:500;}
 .bok:hover{background:var(--green);}
 
+
+/* COMPARE MODE */
+.cmp-hero{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+.cmp-person{flex:1;min-width:160px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;}
+.cmp-person.p1{border-top:3px solid #3fb950;}
+.cmp-person.p2{border-top:3px solid #58a6ff;}
+.cmp-name{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:8px;}
+.cmp-stat{font-size:28px;font-weight:600;color:var(--green-hi);line-height:1;}
+.cmp-stat.p2c{color:#58a6ff;}
+.cmp-sub{font-size:11px;color:var(--text2);margin-top:3px;}
+.cmp-bar-wrap{display:flex;gap:4px;height:8px;border-radius:3px;overflow:hidden;background:var(--bg3);margin-bottom:9px;}
+.cmp-b1{background:#3fb950;border-radius:3px 0 0 3px;transition:width .4s;}
+.cmp-b2{background:#58a6ff;border-radius:0 3px 3px 0;transition:width .4s;}
+.shared-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:8px;}
+.shared-item{background:var(--bg3);border-radius:5px;padding:5px 9px;font-size:12px;display:flex;align-items:center;gap:6px;}
+.shared-item .fl{font-size:14px;}
+.tl-bar2{background:#58a6ff;border-radius:3px 3px 0 0;width:20px;min-height:4px;transition:height .3s;}
+.tl-col2{display:flex;flex-direction:column;align-items:center;}
+.tl-pair{display:flex;gap:2px;align-items:flex-end;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
@@ -368,7 +387,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.3.4";
+const VERSION="1.4.0";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -644,71 +663,197 @@ function updateStats(){
 // ── SUMMARY VIEW ──────────────────────────────────────────────────────────────
 function renderSummary(){
   const u=getUser();if(!u)return;
-  const vis=Object.keys(u.visits);
   const totalC=P.filter(p=>p[4]==="country").length;
   const totalT=P.filter(p=>p[4]==="territory").length;
-  const nc=P.filter(p=>vis.includes(p[1])&&p[4]==="country").length;
-  const nt=P.filter(p=>vis.includes(p[1])&&p[4]==="territory").length;
+  const others=users.filter(x=>x.id!==activeUser);
+  const isCompare=others.length>0;
+
+  // ── Single-user stats ──────────────────────────────────────────────────────
+  const nc=P.filter(p=>p[4]==="country"&&u.visits[p[1]]!==undefined).length;
+  const nt=P.filter(p=>p[4]==="territory"&&u.visits[p[1]]!==undefined).length;
   const pctC=totalC>0?Math.round(nc/totalC*100):0;
 
-  // Per-continent breakdown
-  const contRows=CONTS.map(c=>{
-    const all=P.filter(p=>p[2]===c);
-    const cC=all.filter(p=>p[4]==="country");
-    const cT=all.filter(p=>p[4]==="territory");
-    const vC=cC.filter(p=>u.visits[p[1]]).length;
-    const vT=cT.filter(p=>u.visits[p[1]]).length;
-    const pct=cC.length>0?Math.round(vC/cC.length*100):0;
-    return {c,vC,vT,total:cC.length,pct};
-  }).filter(r=>r.total>0);
+  // ── Build continent rows ───────────────────────────────────────────────────
+  const contRows=CONTS.filter(c=>c!=="All").map(c=>{
+    const cC=P.filter(p=>p[2]===c&&p[4]==="country");
+    if(!cC.length)return null;
+    const vC1=cC.filter(p=>u.visits[p[1]]!==undefined).length;
+    const pct1=Math.round(vC1/cC.length*100);
+    // Per other user
+    const otherData=others.map(o=>({
+      name:o.first,
+      vC:cC.filter(p=>o.visits[p[1]]!==undefined).length,
+      pct:Math.round(cC.filter(p=>o.visits[p[1]]!==undefined).length/cC.length*100)
+    }));
+    return {c,cC:cC.length,vC1,pct1,otherData};
+  }).filter(Boolean);
 
-  // Year histogram
-  const allYrs={};
-  Object.values(u.visits).forEach(arr=>(arr||[]).forEach(y=>{if(y)allYrs[y]=(allYrs[y]||0)+1;}));
-  const yrKeys=Object.keys(allYrs).map(Number).sort((a,b)=>a-b);
-  const maxYrCount=yrKeys.length?Math.max(...yrKeys.map(y=>allYrs[y])):1;
-  const BAR_H=60;
+  // ── Year histograms ────────────────────────────────────────────────────────
+  function buildYrMap(usr){
+    const m={};
+    Object.values(usr.visits).forEach(arr=>(arr||[]).forEach(y=>{if(y)m[y]=(m[y]||0)+1;}));
+    return m;
+  }
+  const yr1=buildYrMap(u);
+  const otherYrs=others.map(o=>buildYrMap(o));
+  const allYrKeys=[...new Set([
+    ...Object.keys(yr1),
+    ...otherYrs.flatMap(m=>Object.keys(m))
+  ])].map(Number).sort((a,b)=>a-b);
+  const maxYrCount=allYrKeys.length?Math.max(
+    ...allYrKeys.map(y=>(yr1[y]||0)),
+    ...otherYrs.flatMap(m=>allYrKeys.map(y=>m[y]||0))
+  ):1;
+  const BAR_H=55;
 
-  const timelineHTML=yrKeys.length===0
-    ?`<div style="color:var(--text3);font-size:12px;padding:8px 0">No years recorded yet — click a country and add years visited.</div>`
+  const topYrs=Object.keys(yr1).map(Number).sort((a,b)=>(yr1[b]||0)-(yr1[a]||0))
+    .slice(0,3).map(y=>`${y} (${yr1[y]})`).join(", ");
+
+  const timelineHTML=allYrKeys.length===0
+    ?`<div style="color:var(--text3);font-size:12px;padding:8px 0">No years recorded yet.</div>`
     :`<div class="timeline-wrap"><div class="timeline">${
-      yrKeys.map(y=>{
-        const n=allYrs[y];
-        const h=Math.max(4,Math.round(n/maxYrCount*BAR_H));
+      allYrKeys.map(y=>{
+        const n1=yr1[y]||0;
+        const h1=n1?Math.max(4,Math.round(n1/maxYrCount*BAR_H)):0;
+        const otherBars=others.map((o,i)=>{
+          const n2=otherYrs[i][y]||0;
+          const h2=n2?Math.max(4,Math.round(n2/maxYrCount*BAR_H)):0;
+          return n2?`<div class="tl-bar2" style="height:${h2}px" title="${o.first}: ${n2} in ${y}"></div>`:`<div style="width:20px"></div>`;
+        }).join("");
         return `<div class="tl-col">
-          <div class="tl-n" style="color:var(--green);font-size:10px">${n}</div>
-          <div class="tl-bar" style="height:${h}px" title="${n} place${n!==1?"s":""} in ${y}"></div>
+          ${n1?`<div class="tl-n" style="color:var(--green);font-size:9px">${n1}</div>`:`<div style="font-size:9px;color:transparent">0</div>`}
+          <div class="tl-pair">
+            ${n1?`<div class="tl-bar" style="height:${h1}px" title="${u.first}: ${n1} in ${y}"></div>`:`<div style="width:20px"></div>`}
+            ${otherBars}
+          </div>
           <div class="tl-yr">${y}</div>
         </div>`;
       }).join("")
     }</div></div>`;
 
-  // Most visited years prose
-  const topYrs=yrKeys.sort((a,b)=>allYrs[b]-allYrs[a]).slice(0,3).map(y=>`${y} (${allYrs[y]})`).join(", ");
+  // ── Compare: shared / unique ───────────────────────────────────────────────
+  let compareHTML="";
+  if(isCompare){
+    const o=others[0]; // primary comparison partner
+    const uISOs=new Set(P.filter(p=>u.visits[p[1]]!==undefined).map(p=>p[1]));
+    const oISOs=new Set(P.filter(p=>o.visits[p[1]]!==undefined).map(p=>p[1]));
+    const shared=P.filter(p=>uISOs.has(p[1])&&oISOs.has(p[1])&&p[4]==="country");
+    const onlyU=P.filter(p=>uISOs.has(p[1])&&!oISOs.has(p[1])&&p[4]==="country");
+    const onlyO=P.filter(p=>oISOs.has(p[1])&&!uISOs.has(p[1])&&p[4]==="country");
+    const neither=P.filter(p=>!uISOs.has(p[1])&&!oISOs.has(p[1])&&p[4]==="country");
 
-  document.getElementById("sum-content").innerHTML=`
+    const oNC=P.filter(p=>p[4]==="country"&&o.visits[p[1]]!==undefined).length;
+    const oNT=P.filter(p=>p[4]==="territory"&&o.visits[p[1]]!==undefined).length;
+    const oPct=Math.round(oNC/totalC*100);
+
+    const mkGrid=arr=>arr.length===0
+      ?`<div style="color:var(--text3);font-size:12px;padding:4px 0">None</div>`
+      :`<div class="shared-grid">${arr.slice(0,30).map(p=>`<div class="shared-item"><span class="fl">${p[3]}</span>${p[0]}</div>`).join("")}${arr.length>30?`<div class="shared-item" style="color:var(--text3)">+${arr.length-30} more</div>`:""}</div>`;
+
+    // Continent comparison bars (side by side)
+    const cmpContRows=contRows.map(r=>{
+      const oRow=r.otherData[0]||{vC:0,pct:0};
+      const maxPct=Math.max(r.pct1,oRow.pct,1);
+      const w1=Math.round(r.pct1/100*100);
+      const w2=Math.round(oRow.pct/100*100);
+      return `<div class="cont-bar-row">
+        <div class="cb-name">${r.c}</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="cb-track" style="flex:1"><div style="height:100%;width:${w1}%;background:#3fb950;border-radius:3px;transition:width .4s"></div></div>
+            <span style="font-size:10px;color:#3fb950;width:50px;text-align:right">${r.vC1}/${r.cC} (${r.pct1}%)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="cb-track" style="flex:1"><div style="height:100%;width:${w2}%;background:#58a6ff;border-radius:3px;transition:width .4s"></div></div>
+            <span style="font-size:10px;color:#58a6ff;width:50px;text-align:right">${oRow.vC}/${r.cC} (${oRow.pct}%)</span>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    compareHTML=`
+    <div class="cmp-hero">
+      <div class="cmp-person p1">
+        <div class="cmp-name">${u.first} ${u.last}</div>
+        <div class="cmp-stat">${nc}</div>
+        <div class="cmp-sub">${pctC}% of the world · ${nt} territories</div>
+      </div>
+      <div class="cmp-person p2">
+        <div class="cmp-name">${o.first} ${o.last}</div>
+        <div class="cmp-stat p2c">${oNC}</div>
+        <div class="cmp-sub">${oPct}% of the world · ${oNT} territories</div>
+      </div>
+      <div class="cmp-person" style="border-top:3px solid var(--border2)">
+        <div class="cmp-name">Together</div>
+        <div class="cmp-stat" style="color:var(--text)">${shared.length}</div>
+        <div class="cmp-sub">shared countries</div>
+      </div>
+    </div>
+
+    <div class="sum-section" style="margin-bottom:18px">
+      <h3>By continent
+        <span style="margin-left:12px;font-size:10px;color:#3fb950">■ ${u.first}</span>
+        <span style="margin-left:8px;font-size:10px;color:#58a6ff">■ ${o.first}</span>
+      </h3>
+      ${cmpContRows}
+    </div>
+
+    <div class="sum-section" style="margin-bottom:18px">
+      <h3>Shared — ${shared.length} countries you have both visited</h3>
+      ${mkGrid(shared)}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      <div class="sum-section">
+        <h3 style="color:#3fb950">Only ${u.first} — ${onlyU.length}</h3>
+        ${mkGrid(onlyU)}
+      </div>
+      <div class="sum-section">
+        <h3 style="color:#58a6ff">Only ${o.first} — ${onlyO.length}</h3>
+        ${mkGrid(onlyO)}
+      </div>
+    </div>
+
+    <div class="sum-section" style="margin-bottom:18px">
+      <h3>Neither has visited — ${neither.length} countries</h3>
+      <div style="color:var(--text3);font-size:12px;margin-bottom:6px">Your shared bucket list</div>
+      ${mkGrid(neither.slice(0,60))}
+    </div>
+
+    <div class="sum-section">
+      <h3>Years active
+        <span style="margin-left:12px;font-size:10px;color:#3fb950">■ ${u.first}</span>
+        <span style="margin-left:8px;font-size:10px;color:#58a6ff">■ ${o.first}</span>
+        ${topYrs?` · ${u.first} busiest: ${topYrs}`:""}
+      </h3>
+      ${timelineHTML}
+    </div>`;
+  } else {
+    // Single user view (unchanged)
+    const contRowsSingle=contRows.map(r=>`
+      <div class="cont-bar-row">
+        <div class="cb-name">${r.c}</div>
+        <div class="cb-track"><div class="cb-fill" style="width:${r.pct1}%"></div></div>
+        <div class="cb-pct">${r.pct1}%</div>
+        <div class="cb-cnt">${r.vC1}/${r.cC}</div>
+      </div>`).join("");
+
+    compareHTML=`
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <div class="sum-card"><div class="sc-val">${nc}</div><div class="sc-lbl">Countries visited</div><div class="sc-sub">${pctC}% of the world</div></div>
       <div class="sum-card"><div class="sc-val">${nt}</div><div class="sc-lbl">Territories visited</div><div class="sc-sub">${nc+nt} total places</div></div>
       <div class="sum-card"><div class="sc-val">${totalC-nc}</div><div class="sc-lbl">Countries to go</div><div class="sc-sub">of ${totalC} sovereign nations</div></div>
     </div>
-
     <div class="sum-section" style="margin-bottom:18px">
-      <h3>By continent</h3>
-      ${contRows.map(r=>`
-        <div class="cont-bar-row">
-          <div class="cb-name">${r.c}</div>
-          <div class="cb-track"><div class="cb-fill" style="width:${r.pct}%"></div></div>
-          <div class="cb-pct">${r.pct}%</div>
-          <div class="cb-cnt">${r.vC}/${r.total}</div>
-        </div>`).join("")}
+      <h3>By continent</h3>${contRowsSingle}
     </div>
-
     <div class="sum-section">
       <h3>Years active${topYrs?` · busiest: ${topYrs}`:""}</h3>
       ${timelineHTML}
-    </div>
-  `;
+    </div>`;
+  }
+
+  document.getElementById("sum-content").innerHTML=compareHTML;
   document.getElementById("view-summary").style.display="flex";
 }
 

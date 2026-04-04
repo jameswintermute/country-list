@@ -160,3 +160,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **Ukraine entry in map legend** — shows the blue/yellow gradient swatch
   with 🇺🇦 label so the special colouring is explained.
 
+
+## [1.4.0] — 2026-04-03
+
+### Added
+- **Multi-person compare mode** — when more than one person exists, the
+  Summary tab automatically switches to a full comparison view:
+  - **Side-by-side stat cards** — countries visited, % of world, and
+    territories for each person, plus a shared count
+  - **Side-by-side continent bars** — green bar for person 1, blue for
+    person 2, on the same axis so differences are immediately visible
+  - **Shared countries** — grid of every country both have visited
+  - **Unique to each person** — two-column grid showing what each has
+    visited that the other hasn't
+  - **Bucket list** — countries neither person has visited, as a shared
+    travel wishlist
+  - **Overlaid year timeline** — green bars (person 1) and blue bars
+    (person 2) side by side per year, showing whether travel patterns
+    overlap or are independent
+
