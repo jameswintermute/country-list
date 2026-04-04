@@ -1,0 +1,18 @@
+# ── Personal data ────────────────────────────────────────────────────────────
+# Never commit personal travel data to the repository.
+data/users/
+
+# ── OS / editor artefacts ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+
+# ── Node (not used, but common in web projects) ───────────────────────────────
+node_modules/
