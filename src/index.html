@@ -1,5 +1,5 @@
 <!--
-  Country List v1.5.0
+  Country List v1.5.1
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.5.0</title>
+<title>Country List v1.5.1</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -410,7 +410,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.5.0";
+const VERSION="1.5.1";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -490,7 +490,7 @@ function importCSV_data(text,filename){
     if(!user.visits[iso])user.visits[iso]=visits[iso];
     else{const m=new Set([...user.visits[iso],...visits[iso]]);user.visits[iso]=Array.from(m).sort((a,b)=>a-b);}
   });
-  activeUser=user.id;save();
+  activeUser=user.id;save();writeUserFile(user);
   alert(`Imported ${Object.keys(visits).length} entries for ${user.first} ${user.last}.`);showApp();
 }
 function csvContent(u){
@@ -499,6 +499,25 @@ function csvContent(u){
   return rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
 }
 function autoSave(){const u=getUser();if(!u)return;localStorage.setItem("cl_csv_"+u.id,csvContent(u));}
+
+// ── WRITE USER FILE (server-side, via start.py /api/save-user endpoint) ───────
+// Filename: FirstName-LastName.csv — always current, no date prefix.
+// Date-prefixed exports remain available via "Export CSV" for point-in-time backups.
+function userFilename(u){
+  return `${u.first}-${u.last}.csv`.replace(/\s+/g,"-");
+}
+function writeUserFile(u){
+  if(!u)return;
+  const csv=csvContent(u);
+  fetch("/api/save-user",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({filename:userFilename(u),csv})
+  }).catch(()=>{}); // Silently ignore if not running via start.py
+}
+function writeAllUserFiles(){
+  users.forEach(u=>writeUserFile(u));
+}
 function exportCSV(){
   const u=getUser();if(!u)return;
   const a=document.createElement("a");
@@ -509,7 +528,7 @@ function exportCSV(){
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 load();
-if(users.length){activeUser=users[0].id;showApp();}
+if(users.length){activeUser=users[0].id;showApp();writeAllUserFiles();}
 
 // ── SETUP ─────────────────────────────────────────────────────────────────────
 function setupUser(){
@@ -518,8 +537,8 @@ function setupUser(){
   const iso=document.getElementById("s-cty").dataset.iso;
   if(!first){alert("Enter your first name");return;}
   if(!iso){alert("Select a home country");return;}
-  users.push({id:Date.now().toString(),first,last,country:iso,visits:{}});
-  activeUser=users[users.length-1].id;save();showApp();
+  const nu={id:Date.now().toString(),first,last,country:iso,visits:{}};
+  users.push(nu);activeUser=nu.id;save();showApp();writeUserFile(nu);
 }
 
 function showApp(){
@@ -555,8 +574,8 @@ function confirmAdd(){
   const last=document.getElementById("a-last").value.trim();
   const iso=document.getElementById("a-cty").dataset.iso;
   if(!first||!iso){alert("Fill in name and country");return;}
-  users.push({id:Date.now().toString(),first,last,country:iso,visits:{}});
-  activeUser=users[users.length-1].id;save();closeAdd();
+  const nu={id:Date.now().toString(),first,last,country:iso,visits:{}};
+  users.push(nu);activeUser=nu.id;save();closeAdd();writeUserFile(nu);
   ["a-first","a-last","a-cty"].forEach(id=>{const e=document.getElementById(id);e.value="";delete e.dataset.iso;});
   renderTabs();renderList();updateStats();refreshColors();
 }
@@ -640,22 +659,32 @@ function renderDet(){
           <span class="x" onclick="rmYr('${selISO}',${y})">×</span>
         </span>`).join("")}
       <span class="yr-add">
-        <input type="number" id="yr-in" placeholder="${new Date().getFullYear()}" min="1900" max="${new Date().getFullYear()}">
+        <input type="number" id="yr-in" placeholder="year e.g. 2000" min="1920" max="${new Date().getFullYear()}" onkeydown="if(event.key==='Enter'){event.preventDefault();addYr('${selISO}');}" onblur="addYrIfValid('${selISO}')">
         <button onclick="addYr('${selISO}')">+ Year</button>
       </span>
     </div>
   </div>`;
 }
 
-function markVis(iso){const u=getUser();if(!u.visits[iso])u.visits[iso]=[];save();renderList();renderDet();refreshColors();updateStats();autoSave();}
-function unvisit(iso){const u=getUser();delete u.visits[iso];save();renderList();renderDet();refreshColors();updateStats();autoSave();}
+function markVis(iso){const u=getUser();if(!u.visits[iso])u.visits[iso]=[];save();renderList();renderDet();refreshColors();updateStats();autoSave();writeUserFile(u);}
+function unvisit(iso){const u=getUser();delete u.visits[iso];save();renderList();renderDet();refreshColors();updateStats();autoSave();writeUserFile(u);}
 function addYr(iso){
   const u=getUser();
-  const v=parseInt(document.getElementById("yr-in").value);
-  if(!v||v<1900||v>new Date().getFullYear()){alert("Enter a valid year");return;}
+  const el=document.getElementById("yr-in");if(!el)return;
+  const v=parseInt(el.value);
+  if(!v||v<1920||v>new Date().getFullYear()){if(el.value)alert("Enter a valid year (1920–"+new Date().getFullYear()+")");return;}
   if(!u.visits[iso])u.visits[iso]=[];
   if(!u.visits[iso].includes(v)){u.visits[iso].push(v);u.visits[iso].sort((a,b)=>a-b);}
-  save();renderDet();renderList();autoSave();
+  save();renderDet();renderList();autoSave();writeUserFile(u);
+}
+// Called on blur — silently adds year if valid, does nothing if blank or invalid
+function addYrIfValid(iso){
+  const u=getUser();const el=document.getElementById("yr-in");if(!el||!el.value)return;
+  const v=parseInt(el.value);
+  if(!v||v<1920||v>new Date().getFullYear())return;
+  if(!u.visits[iso])u.visits[iso]=[];
+  if(!u.visits[iso].includes(v)){u.visits[iso].push(v);u.visits[iso].sort((a,b)=>a-b);}
+  save();renderDet();renderList();autoSave();writeUserFile(u);
 }
 function rmYr(iso,yr){
   const u=getUser();
@@ -671,7 +700,7 @@ function editYr(iso,oldYr,newValStr){
   u.visits[iso]=u.visits[iso].filter(y=>y!==oldYr);
   if(!u.visits[iso].includes(nv))u.visits[iso].push(nv);
   u.visits[iso].sort((a,b)=>a-b);
-  save();renderDet();renderList();autoSave();
+  save();renderDet();renderList();autoSave();writeUserFile(getUser());
 }
 
 // ── STATS (toolbar) ───────────────────────────────────────────────────────────
