@@ -1,5 +1,5 @@
 <!--
-  Country List v1.5.1
+  Country List v1.6.0
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.5.1</title>
+<title>Country List v1.6.0</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -41,6 +41,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .utab{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;white-space:nowrap;}
 .utab:hover{border-color:var(--green-dim);color:var(--text);}
 .utab.on{background:var(--green-dim);border-color:var(--green);color:var(--text);font-weight:500;}
+.utab-wrap{display:flex;align-items:center;gap:0;}
+.utab-del{background:none;border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--text3);line-height:1;transition:all .15s;}
+.utab-del:hover{background:rgba(248,81,73,.15);color:var(--red);border-color:var(--red);}
+.utab-wrap .utab{border-radius:6px 0 0 6px;}
+.utab-wrap .utab.on{border-radius:6px 0 0 6px;}
 .btn-add{background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;color:var(--text3);}
 .btn-add:hover{border-color:var(--green-dim);color:var(--green);}
 
@@ -224,6 +229,31 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 .heatmap td{padding:4px 6px;text-align:center;border-radius:3px;}
 .heatmap td.name-cell{text-align:left;color:var(--text);font-size:12px;padding-left:2px;}
 .hm-cell{border-radius:3px;padding:3px 6px;font-size:11px;font-weight:500;}
+
+/* ADDONS PANEL */
+.addon-panel{border-top:1px solid var(--border2);flex-shrink:0;}
+.addon-hdr{display:flex;align-items:center;gap:6px;padding:8px 11px;cursor:pointer;font-size:11px;color:var(--text3);user-select:none;transition:color .15s;}
+.addon-hdr:hover{color:var(--text);}
+.addon-hdr .chev{font-size:9px;transition:transform .2s;}
+.addon-hdr .chev.open{transform:rotate(90deg);}
+.addon-hdr b{color:var(--text2);}
+.addon-body{display:none;padding:4px 0 6px;}
+.addon-row{display:flex;align-items:center;gap:8px;padding:4px 11px;font-size:12px;cursor:pointer;}
+.addon-row:hover{background:var(--bg3);}
+.addon-row input{accent-color:#2dd4bf;cursor:pointer;}
+.addon-row .al{flex:1;color:var(--text2);}
+.addon-row .ac{font-size:10px;color:var(--text3);}
+/* addon region items in sidebar */
+.addon-sep{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#2dd4bf;padding:6px 11px 2px;opacity:.8;}
+.ci.addon-vis{color:#2dd4bf;}
+/* addon inset map panel */
+.addon-map-wrap{background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;}
+.addon-map-hdr{padding:6px 13px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border2);}
+.addon-map-hdr b{color:var(--text2);}
+.addon-map-gs{flex:1;display:flex;gap:10px;}
+.addon-map-gs span b{color:#2dd4bf;}
+#addon-svg-wrap{height:220px;position:relative;overflow:hidden;background:var(--bg);}
+#addon-svg{width:100%;height:100%;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
@@ -276,6 +306,18 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
   </div>
 </div>
 
+<!-- DELETE USER MODAL -->
+<div class="mbg" id="del-modal">
+  <div class="mdl">
+    <h3>Remove person</h3>
+    <p id="del-msg" style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6"></p>
+    <div class="mft">
+      <button class="bcan" onclick="closeDelUser()">Cancel</button>
+      <button class="bok" style="background:var(--red);border-color:var(--red)" onclick="confirmDelUser()">Remove</button>
+    </div>
+  </div>
+</div>
+
 <!-- ABOUT MODAL -->
 <div class="mbg" id="about-modal">
   <div class="mdl" style="width:420px">
@@ -320,12 +362,20 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
       <div class="sbq"><input id="sbq" placeholder="Search countries &amp; territories…" oninput="renderList()"></div>
       <div class="cl" id="cl"></div>
       <div class="sst" id="sst"></div>
+      <div class="addon-panel">
+        <div class="addon-hdr" onclick="toggleAddonPanel()">
+          <span class="chev" id="addon-chev">▶</span>
+          <span>Addons</span>
+          <b id="addon-hdr-count"></b>
+        </div>
+        <div class="addon-body" id="addon-body"></div>
+      </div>
     </div>
 
     <!-- Map view -->
     <div class="main" id="view-map">
       <div class="tb">
-        <div class="gs" id="gs"></div>
+        <div class="gs" id="gs"></div><div class="gs" id="gs-addon" style="display:none"></div>
         <div class="tbsp"></div>
         <button class="bexp" onclick="exportCSV()">&#8595; Export CSV</button>
         <button class="bexp" onclick="exportJSON()">&#8595; Backup JSON</button>
@@ -342,6 +392,12 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
         </div>
       </div>
       <div class="det" id="det"><div class="dem">Click a country on the map or in the list</div></div>
+      <div class="addon-map-wrap" id="addon-map-wrap" style="display:none">
+        <div class="addon-map-hdr">
+          <div class="addon-map-gs" id="addon-map-gs"></div>
+        </div>
+        <div id="addon-svg-wrap"><svg id="addon-svg"></svg></div>
+      </div>
     </div>
 
     <!-- Summary view -->
@@ -410,7 +466,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.5.1";
+const VERSION="1.6.0";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -552,22 +608,54 @@ function showApp(){
   if(u){const pl=P.find(p=>p[1]===u.country);if(pl)activeCont=pl[2];}
   renderTabs();renderContTabs();renderList();updateStats();
   if(!mapInited){initMap();mapInited=true;}
-  checkDataFiles();
+  checkDataFiles();initAddons();
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
 function getUser(){return users.find(u=>u.id===activeUser);}
 function renderTabs(){
-  document.getElementById("utabs").innerHTML=users.map(u=>
-    `<div class="utab${u.id===activeUser?" on":""}" onclick="switchUser('${u.id}')">${u.first} ${u.last}</div>`
-  ).join("");
+  document.getElementById("utabs").innerHTML=users.map(u=>{
+    const active=u.id===activeUser;
+    return`<div class="utab-wrap">
+      <div class="utab${active?" on":""}" onclick="switchUser('${u.id}')">${u.first} ${u.last}</div>
+      <button class="utab-del" onclick="openDelUser('${u.id}')" title="Remove ${u.first}">&#215;</button>
+    </div>`;
+  }).join("");
 }
 function switchUser(id){
-  activeUser=id;selISO=null;
+  activeUser=id;selISO=null;selAddonRegion=null;justMe=false;cmpPair=[null,null];
   renderTabs();renderList();updateStats();renderDet();refreshColors();
+  renderAddonSidebar();updateAddonStats();updateAddonMap();
   if(activeView==="summary")renderSummary();
 }
 function openAdd(){document.getElementById("add-modal").classList.add("on");}
+
+// ── DELETE USER ───────────────────────────────────────────────────────────────
+let _delUserId=null;
+function openDelUser(id){
+  const u=users.find(x=>x.id===id);if(!u)return;
+  if(users.length===1){alert("You cannot remove the only person.");return;}
+  _delUserId=id;
+  const nc=Object.keys(u.visits).length;
+  document.getElementById("del-msg").textContent=
+    `Remove ${u.first} ${u.last}? They have ${nc} place${nc!==1?"s":""} recorded. `+
+    `This cannot be undone — export their CSV first if you want to keep their data.`;
+  document.getElementById("del-modal").classList.add("on");
+}
+function closeDelUser(){document.getElementById("del-modal").classList.remove("on");_delUserId=null;}
+function confirmDelUser(){
+  if(!_delUserId)return;
+  const u=users.find(x=>x.id===_delUserId);
+  users=users.filter(x=>x.id!==_delUserId);
+  // Remove from localStorage
+  localStorage.removeItem("cl_csv_"+_delUserId);
+  // If we deleted the active user, switch to the first remaining
+  if(activeUser===_delUserId) activeUser=users[0]?.id||null;
+  selISO=null;
+  save();closeDelUser();
+  renderTabs();renderList();updateStats();renderDet();refreshColors();
+  if(activeView==="summary")renderSummary();
+}
 function closeAdd(){document.getElementById("add-modal").classList.remove("on");}
 function confirmAdd(){
   const first=document.getElementById("a-first").value.trim();
@@ -1195,13 +1283,20 @@ function drawCrimea(){
     });
 }
 
-function refreshColors(){gSel&&gSel.selectAll("path.cp").attr("fill",d=>fillFor(N2A[+d.id]));drawCrimea();}
-function highlightSel(){
-  refreshColors();
-  if(!selISO)return;
-  gSel.selectAll("path.cp").filter(d=>N2A[+d.id]===selISO).raise()
-    .attr("stroke","var(--green-hi)").attr("stroke-width",1.5);
+function refreshColors(){
+  if(!gSel)return;
+  // Reset ALL strokes to default first, then re-apply selection highlight
+  gSel.selectAll("path.cp")
+    .attr("fill",d=>fillFor(N2A[+d.id]))
+    .attr("stroke","var(--bg)")
+    .attr("stroke-width",0.4);
+  drawCrimea();
+  if(selISO){
+    gSel.selectAll("path.cp").filter(d=>N2A[+d.id]===selISO).raise()
+      .attr("stroke","var(--green-hi)").attr("stroke-width",1.5);
+  }
 }
+function highlightSel(){refreshColors();}
 
 function zoomTo(cont,instant=false){
   if(!proj||!svgSel)return;
@@ -1218,6 +1313,361 @@ function zoomTo(cont,instant=false){
   if(instant)svgSel.call(zoom.transform,t);
   else svgSel.transition().duration(550).call(zoom.transform,t);
 }
+
+
+// ── ADDON SYSTEM ──────────────────────────────────────────────────────────────
+// Addons are opt-in sub-national region trackers (states, provinces, nations).
+// They are entirely secondary to sovereign nation tracking.
+// Addon visits are stored in localStorage keyed by "cl_addon_<addonId>_<userId>".
+
+let addonMeta = [];          // from /api/addons
+let addonEnabled = {};       // { addonId: true/false } per session, persisted in localStorage
+let addonLoaded = {};        // { addonId: true } — data.js has been injected
+let addonPanelOpen = false;
+let selAddonRegion = null;   // { addonId, code }
+
+function addonVisitKey(addonId){ return `cl_addon_${addonId}_${activeUser}`; }
+function getAddonVisits(addonId){
+  try{ return JSON.parse(localStorage.getItem(addonVisitKey(addonId))||"{}"); }
+  catch(e){ return {}; }
+}
+function setAddonVisits(addonId, obj){
+  localStorage.setItem(addonVisitKey(addonId), JSON.stringify(obj));
+}
+
+// Load addon enable prefs from localStorage
+function loadAddonPrefs(){
+  try{ addonEnabled=JSON.parse(localStorage.getItem("cl_addon_enabled")||"{}"); }
+  catch(e){ addonEnabled={}; }
+}
+function saveAddonPrefs(){
+  localStorage.setItem("cl_addon_enabled", JSON.stringify(addonEnabled));
+}
+
+// Fetch addon list from server
+function initAddons(){
+  loadAddonPrefs();
+  fetch("/api/addons").then(r=>r.json()).then(list=>{
+    addonMeta=list;
+    renderAddonPanel();
+    // Load any already-enabled addons
+    list.forEach(a=>{ if(addonEnabled[a.id]) loadAddonData(a.id); });
+  }).catch(()=>{}); // not running via start.py — addons unavailable
+}
+
+function toggleAddonPanel(){
+  addonPanelOpen=!addonPanelOpen;
+  document.getElementById("addon-body").style.display=addonPanelOpen?"block":"none";
+  const chev=document.getElementById("addon-chev");
+  if(chev)chev.classList.toggle("open",addonPanelOpen);
+}
+
+function renderAddonPanel(){
+  const body=document.getElementById("addon-body");
+  const hdrCount=document.getElementById("addon-hdr-count");
+  if(!body)return;
+  const enabledCount=addonMeta.filter(a=>addonEnabled[a.id]).length;
+  if(hdrCount) hdrCount.textContent=enabledCount?`· ${enabledCount} active`:"";
+  if(!addonMeta.length){
+    body.innerHTML=`<div style="padding:6px 11px;font-size:11px;color:var(--text3)">No addons found in addons/ folder.</div>`;
+    return;
+  }
+  body.innerHTML=addonMeta.map(a=>`
+    <div class="addon-row">
+      <input type="checkbox" id="adc-${a.id}" ${addonEnabled[a.id]?"checked":""}
+        onchange="toggleAddon('${a.id}',this.checked)">
+      <label for="adc-${a.id}" class="al" style="cursor:pointer">
+        ${a.countryFlag||"🌍"} ${a.name}
+      </label>
+      <span class="ac">${a.regionCount} regions</span>
+    </div>`).join("");
+  renderAddonSidebar();
+  updateAddonStats();
+  updateAddonMap();
+}
+
+function toggleAddon(id, enabled){
+  addonEnabled[id]=enabled;
+  saveAddonPrefs();
+  if(enabled && !addonLoaded[id]) loadAddonData(id);
+  else { renderAddonSidebar(); updateAddonStats(); updateAddonMap(); }
+  renderAddonPanel();
+}
+
+function loadAddonData(id){
+  if(addonLoaded[id]){ renderAddonSidebar(); updateAddonStats(); updateAddonMap(); return; }
+  const script=document.createElement("script");
+  script.src=`/api/addon-data/${id}`;
+  script.onload=()=>{
+    addonLoaded[id]=true;
+    renderAddonSidebar();
+    updateAddonStats();
+    updateAddonMap();
+  };
+  script.onerror=()=>console.warn("Could not load addon:", id);
+  document.head.appendChild(script);
+}
+
+// Render addon regions into the sidebar list (below main countries)
+function renderAddonSidebar(){
+  const u=getUser(); if(!u) return;
+  const container=document.getElementById("cl");
+  // Remove any existing addon sections
+  container.querySelectorAll(".addon-sep,.addon-ci").forEach(el=>el.remove());
+  // Append enabled addons that have loaded data
+  addonMeta.forEach(a=>{
+    if(!addonEnabled[a.id]||!addonLoaded[a.id]) return;
+    const data=window.ADDON_DATA&&window.ADDON_DATA[a.id]; if(!data) return;
+    const visits=getAddonVisits(a.id);
+    const q=(document.getElementById("sbq").value||"").toLowerCase();
+    const sep=document.createElement("div");
+    sep.className="addon-sep";
+    sep.textContent=`── ${a.name}`;
+    container.appendChild(sep);
+    data.regions
+      .filter(r=>!q||r[0].toLowerCase().includes(q))
+      .forEach(r=>{
+        const [name,code,flag]=r;
+        const vis=visits[code]!==undefined;
+        const cur=selAddonRegion&&selAddonRegion.addonId===a.id&&selAddonRegion.code===code;
+        const div=document.createElement("div");
+        div.className=`ci${vis?" addon-vis":""}${cur?" cur":""}`;
+        div.innerHTML=`<span class="f">${flag}</span><span class="n">${name}</span>${vis?`<span class="yy">✓</span>`:""}`;
+        div.onclick=()=>selAddonPlace(a.id, code);
+        container.appendChild(div);
+      });
+  });
+}
+
+function selAddonPlace(addonId, code){
+  selAddonRegion={addonId,code};
+  selISO=null; // deselect any country
+  renderAddonSidebar();
+  renderAddonDet();
+  updateAddonMap();
+}
+
+function renderAddonDet(){
+  const u=getUser(); if(!u||!selAddonRegion) return;
+  const {addonId,code}=selAddonRegion;
+  const data=window.ADDON_DATA&&window.ADDON_DATA[addonId]; if(!data) return;
+  const region=data.regions.find(r=>r[1]===code); if(!region) return;
+  const [name,rc,flag,type]=region;
+  const visits=getAddonVisits(addonId);
+  const vis=visits[code]!==undefined;
+  const meta=addonMeta.find(a=>a.id===addonId);
+  const el=document.getElementById("det");
+  el.innerHTML=`<div class="di">
+    <div class="dn">${flag} ${name}</div>
+    <div class="dm">${meta?meta.name:addonId} · ${type} <span style="color:#2dd4bf;font-size:10px">addon</span></div>
+    <div class="da">
+      ${vis
+        ?`<button class="bunvis" onclick="addonUnvisit('${addonId}','${code}')">Remove visited</button>`
+        :`<button class="bvis" onclick="addonMarkVis('${addonId}','${code}')">Mark visited</button>`}
+    </div>
+    <div class="yps">
+      ${(visits[code]||[]).map(y=>`
+        <span class="yp">
+          <input class="yp-val" type="number" value="${y}" min="1920" max="${new Date().getFullYear()}"
+            onchange="addonEditYr('${addonId}','${code}',${y},this.value)"
+            onblur="addonEditYr('${addonId}','${code}',${y},this.value)">
+          <span class="x" onclick="addonRmYr('${addonId}','${code}',${y})">×</span>
+        </span>`).join("")}
+      <span class="yr-add">
+        <input type="number" id="yr-in" placeholder="year e.g. 2000" min="1920" max="${new Date().getFullYear()}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addonAddYr('${addonId}','${code}');}"
+          onblur="addonAddYrIfValid('${addonId}','${code}')">
+        <button onclick="addonAddYr('${addonId}','${code}')">+ Year</button>
+      </span>
+    </div>
+  </div>`;
+}
+
+function addonMarkVis(id,code){
+  const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
+  setAddonVisits(id,v); renderAddonSidebar(); renderAddonDet(); updateAddonStats(); updateAddonMap();
+}
+function addonUnvisit(id,code){
+  const v=getAddonVisits(id); delete v[code];
+  setAddonVisits(id,v); renderAddonSidebar(); renderAddonDet(); updateAddonStats(); updateAddonMap();
+}
+function addonAddYr(id,code){
+  const el=document.getElementById("yr-in"); if(!el) return;
+  const yr=parseInt(el.value);
+  if(!yr||yr<1920||yr>new Date().getFullYear()){if(el.value)alert("Enter a valid year");return;}
+  const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
+  if(!v[code].includes(yr)){v[code].push(yr);v[code].sort((a,b)=>a-b);}
+  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+}
+function addonAddYrIfValid(id,code){
+  const el=document.getElementById("yr-in"); if(!el||!el.value) return;
+  const yr=parseInt(el.value);
+  if(!yr||yr<1920||yr>new Date().getFullYear()) return;
+  const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
+  if(!v[code].includes(yr)){v[code].push(yr);v[code].sort((a,b)=>a-b);}
+  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+}
+function addonRmYr(id,code,yr){
+  const v=getAddonVisits(id); if(!v[code]) return;
+  v[code]=v[code].filter(y=>y!==yr); if(!v[code].length) delete v[code];
+  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+}
+function addonEditYr(id,code,oldYr,newStr){
+  const nv=parseInt(newStr); if(!nv||nv<1920||nv>new Date().getFullYear()||nv===oldYr) return;
+  const v=getAddonVisits(id); if(!v[code]) return;
+  v[code]=v[code].filter(y=>y!==oldYr);
+  if(!v[code].includes(nv)) v[code].push(nv);
+  v[code].sort((a,b)=>a-b);
+  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+}
+
+// Addon stats in toolbar (separate from sovereign nation count)
+function updateAddonStats(){
+  const u=getUser(); if(!u) return;
+  const gsAddon=document.getElementById("gs-addon");
+  if(!gsAddon) return;
+  const parts=[];
+  addonMeta.forEach(a=>{
+    if(!addonEnabled[a.id]||!addonLoaded[a.id]) return;
+    const data=window.ADDON_DATA&&window.ADDON_DATA[a.id]; if(!data) return;
+    const visits=getAddonVisits(a.id);
+    const n=Object.keys(visits).length;
+    const total=data.regions.length;
+    parts.push(`<span><b>${n}</b> / ${total} ${a.name}</span>`);
+  });
+  gsAddon.innerHTML=parts.join("");
+  gsAddon.style.display=parts.length?"flex":"none";
+}
+
+// ── ADDON INSET MAP ────────────────────────────────────────────────────────────
+let addonSvgSel=null, addonGSel=null, addonPathFn=null, addonZoom=null;
+let addonMapId=null; // which addon is currently rendered in the inset
+
+function updateAddonMap(){
+  const enabled=addonMeta.filter(a=>addonEnabled[a.id]&&addonLoaded[a.id]
+    &&window.ADDON_DATA&&window.ADDON_DATA[a.id]);
+  const wrap=document.getElementById("addon-map-wrap");
+  if(!wrap) return;
+  if(!enabled.length){ wrap.style.display="none"; addonMapId=null; return; }
+  wrap.style.display="";
+  // Show the first enabled addon (or the one whose region is selected)
+  const active=selAddonRegion
+    ? enabled.find(a=>a.id===selAddonRegion.addonId)||enabled[0]
+    : enabled[0];
+  if(!active) return;
+  renderAddonMap(active);
+}
+
+function renderAddonMap(meta){
+  const data=window.ADDON_DATA[meta.id]; if(!data) return;
+  const gs=document.getElementById("addon-map-gs");
+  const u=getUser();
+  const visits=getAddonVisits(meta.id);
+  const n=Object.keys(visits).length;
+  if(gs) gs.innerHTML=`<span><b>${meta.countryFlag||""} ${meta.name}</b></span><span style="margin-left:10px"><b style="color:#2dd4bf">${n}</b> / ${data.regions.length} visited</span>`;
+
+  const svgEl=document.getElementById("addon-svg");
+  const wrapEl=document.getElementById("addon-svg-wrap");
+  const W=wrapEl.clientWidth||700, H=wrapEl.clientHeight||220;
+
+  if(addonMapId!==meta.id){
+    // Re-initialise the SVG for this addon
+    addonMapId=meta.id;
+    addonSvgSel=d3.select("#addon-svg").attr("width",W).attr("height",H);
+    addonSvgSel.selectAll("*").remove();
+    addonSvgSel.append("rect").attr("width","100%").attr("height","100%").attr("fill","var(--bg)");
+    addonGSel=addonSvgSel.append("g");
+    addonZoom=d3.zoom().scaleExtent([0.5,20]).on("zoom",e=>{
+      addonGSel.attr("transform",e.transform);
+      addonGSel.selectAll("path.ap").attr("stroke-width",0.5/e.transform.k);
+    });
+    addonSvgSel.call(addonZoom);
+  }
+
+  function drawAddonRegions(features){
+    addonGSel.selectAll("path.ap").remove();
+    addonGSel.selectAll("text.ap-lbl").remove();
+
+    let projFn;
+    if(data.mapType==="us-albers"){
+      // us-atlas Albers is pre-projected to 975×610; use identity path
+      projFn=d3.geoPath();
+      const scaleX=W/975, scaleY=H/610, scale=Math.min(scaleX,scaleY)*0.92;
+      const tx=(W-975*scale)/2, ty=(H-610*scale)/2;
+      addonSvgSel.call(addonZoom.transform,
+        d3.zoomIdentity.translate(tx,ty).scale(scale));
+    } else {
+      // GeoJSON with lat/lon — fit projection to features
+      const proj2=d3.geoMercator().fitSize([W,H],{type:"FeatureCollection",features});
+      projFn=d3.geoPath().projection(proj2);
+    }
+
+    addonGSel.selectAll("path.ap")
+      .data(features).join("path")
+      .attr("class","ap")
+      .attr("d",projFn)
+      .attr("fill",d=>{
+        const code=(data.featureCode||((f)=>f.properties.code))(d);
+        if(selAddonRegion&&selAddonRegion.addonId===meta.id&&selAddonRegion.code===code)
+          return"var(--blue)";
+        return visits[code]!==undefined?"#2dd4bf":"var(--bg4)";
+      })
+      .attr("stroke","var(--bg)").attr("stroke-width",0.5)
+      .style("cursor","pointer")
+      .on("mouseover",function(e,d){
+        const code=(data.featureCode||((f)=>f.properties.code))(d);
+        const f=visits[code]!==undefined?"#5eead4":"var(--bg3)";
+        d3.select(this).attr("fill",f);
+        const region=data.regions.find(r=>r[1]===code);
+        const tip=document.getElementById("map-tip");
+        if(tip&&region){
+          tip.textContent=region[2]+" "+region[0];
+          tip.style.display="block";
+        }
+      })
+      .on("mousemove",function(e){
+        const tip=document.getElementById("map-tip");
+        if(!tip) return;
+        const rect=document.querySelector(".mw").getBoundingClientRect();
+        tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-140)+"px";
+        tip.style.top=Math.max(4,e.clientY-rect.top-32)+"px";
+      })
+      .on("mouseout",function(e,d){
+        const code=(data.featureCode||((f)=>f.properties.code))(d);
+        const isSel=selAddonRegion&&selAddonRegion.addonId===meta.id&&selAddonRegion.code===code;
+        d3.select(this).attr("fill",isSel?"var(--blue)":visits[code]!==undefined?"#2dd4bf":"var(--bg4)");
+        const tip=document.getElementById("map-tip");
+        if(tip) tip.style.display="none";
+      })
+      .on("click",(e,d)=>{
+        const code=(data.featureCode||((f)=>f.properties.code))(d);
+        if(code) selAddonPlace(meta.id,code);
+      });
+  }
+
+  if(data.mapType==="us-albers"){
+    if(!window._usAtlasCache){
+      window._usAtlasCache={};
+    }
+    if(window._usAtlasCache.features){
+      drawAddonRegions(window._usAtlasCache.features);
+    } else {
+      fetch("https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json")
+        .then(r=>r.json())
+        .then(us=>{
+          window._usAtlasCache.features=topojson.feature(us,us.objects.states).features;
+          drawAddonRegions(window._usAtlasCache.features);
+        })
+        .catch(()=>{ console.warn("Could not load us-atlas"); });
+    }
+  } else {
+    // GeoJSON — features already in data
+    drawAddonRegions(data.mapData.features);
+  }
+}
+
+// Re-render addon map when user is switched
+const _origSwitchUser=switchUser;
 
 // ── TYPEAHEAD ─────────────────────────────────────────────────────────────────
 function setupTA(inId,dropId){
