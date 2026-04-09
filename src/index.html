@@ -1,5 +1,5 @@
 <!--
-  Country List v1.6.0
+  Country List v1.6.3
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.6.0</title>
+<title>Country List v1.6.3</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -231,15 +231,8 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 .hm-cell{border-radius:3px;padding:3px 6px;font-size:11px;font-weight:500;}
 
 /* ADDONS PANEL */
-.addon-panel{border-top:1px solid var(--border2);flex-shrink:0;}
-.addon-hdr{display:flex;align-items:center;gap:6px;padding:8px 11px;cursor:pointer;font-size:11px;color:var(--text3);user-select:none;transition:color .15s;}
-.addon-hdr:hover{color:var(--text);}
-.addon-hdr .chev{font-size:9px;transition:transform .2s;}
-.addon-hdr .chev.open{transform:rotate(90deg);}
-.addon-hdr b{color:var(--text2);}
-.addon-body{display:none;padding:4px 0 6px;}
+/* addon-panel styles moved to Addons view tab */
 .addon-row{display:flex;align-items:center;gap:8px;padding:4px 11px;font-size:12px;cursor:pointer;}
-.addon-row:hover{background:var(--bg3);}
 .addon-row input{accent-color:#2dd4bf;cursor:pointer;}
 .addon-row .al{flex:1;color:var(--text2);}
 .addon-row .ac{font-size:10px;color:var(--text3);}
@@ -353,6 +346,7 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
   <div class="vtabs">
     <div class="vtab on" id="vtab-map" onclick="setView('map')">Map</div>
     <div class="vtab" id="vtab-summary" onclick="setView('summary')">Summary</div>
+    <div class="vtab" id="vtab-addons" onclick="setView('addons')">Addons <span id="addon-tab-count" style="font-size:10px;color:var(--text3)"></span></div>
   </div>
 
   <div style="display:flex;flex:1;min-height:0;overflow:hidden">
@@ -362,14 +356,7 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
       <div class="sbq"><input id="sbq" placeholder="Search countries &amp; territories…" oninput="renderList()"></div>
       <div class="cl" id="cl"></div>
       <div class="sst" id="sst"></div>
-      <div class="addon-panel">
-        <div class="addon-hdr" onclick="toggleAddonPanel()">
-          <span class="chev" id="addon-chev">▶</span>
-          <span>Addons</span>
-          <b id="addon-hdr-count"></b>
-        </div>
-        <div class="addon-body" id="addon-body"></div>
-      </div>
+
     </div>
 
     <!-- Map view -->
@@ -403,6 +390,11 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
     <!-- Summary view -->
     <div id="view-summary" style="display:none;flex:1;overflow-y:auto;padding:20px 24px;flex-direction:column;gap:20px;">
       <div id="sum-content"></div>
+    </div>
+
+    <!-- Addons view -->
+    <div id="view-addons" style="display:none;flex:1;overflow-y:auto;flex-direction:column;">
+      <div id="addon-body" style="padding:16px 20px;max-width:800px;"></div>
     </div>
   </div>
 </div>
@@ -466,7 +458,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.6.0";
+const VERSION="1.6.3";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -673,9 +665,12 @@ function setView(v){
   activeView=v;
   document.getElementById("vtab-map").classList.toggle("on",v==="map");
   document.getElementById("vtab-summary").classList.toggle("on",v==="summary");
+  document.getElementById("vtab-addons").classList.toggle("on",v==="addons");
   document.getElementById("view-map").style.display=v==="map"?"flex":"none";
   document.getElementById("view-summary").style.display=v==="summary"?"flex":"none";
+  document.getElementById("view-addons").style.display=v==="addons"?"flex":"none";
   if(v==="summary")renderSummary();
+  if(v==="addons")renderAddonView();
 }
 
 // ── CONTINENT TABS ────────────────────────────────────────────────────────────
@@ -1160,14 +1155,14 @@ function initMap(){
     .then(world=>{
       document.getElementById("mload").style.display="none";
       gFeats=topojson.feature(world,world.objects.countries).features;
-      drawMap();drawCrimea();zoomTo(activeCont,true);
+      drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);
     })
     .catch(()=>{document.getElementById("mload").textContent="Map requires start.py — run: python3 start.py";});
   new ResizeObserver(()=>{
     const w2=wrap.clientWidth,h2=wrap.clientHeight;
     svgSel.attr("width",w2).attr("height",h2);
     proj.translate([w2/2,h2/2]);
-    if(gFeats.length){drawMap();drawCrimea();zoomTo(activeCont,true);}
+    if(gFeats.length){drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);}
   }).observe(wrap);
 }
 
@@ -1283,6 +1278,72 @@ function drawCrimea(){
     });
 }
 
+
+// ── FRENCH GUIANA OVERLAY ─────────────────────────────────────────────────────
+// Natural Earth merges French Guiana into France's polygon at 110m scale.
+// We overlay French Guiana separately so it only colours when GF is visited,
+// not whenever France (FR) is visited.
+const FRENCH_GUIANA_GEOJSON = {
+  type:"Feature",
+  properties:{name:"French Guiana"},
+  geometry:{
+    type:"Polygon",
+    coordinates:[[
+      [-54.5,2.3],[-53.0,2.3],[-52.7,2.4],[-51.6,4.1],[-51.7,4.8],
+      [-52.4,5.0],[-53.8,5.8],[-54.2,5.7],[-54.5,4.9],[-54.4,3.8],
+      [-54.5,2.3]
+    ]]
+  }
+};
+
+function drawFrenchGuiana(){
+  if(!gSel||!path)return;
+  gSel.selectAll("path.guf-overlay").remove();
+  const u=getUser();
+  const gfVisited=u&&u.visits["GF"]!==undefined;
+  const gfHome=u&&u.country==="GF";
+  // Only draw the overlay if GF is NOT visited — when visited, show it distinctly
+  // If not visited, draw it in the same colour as France's base polygon
+  // so it blends in; only pop out when GF itself is marked visited
+  const fill=gfHome?"var(--blue)":gfVisited?"var(--green)":fillFor("FR");
+  gSel.append("path")
+    .attr("class","cp guf-overlay")
+    .datum(FRENCH_GUIANA_GEOJSON)
+    .attr("d",path)
+    .attr("fill",fill)
+    .attr("stroke","var(--bg)")
+    .attr("stroke-width",0.4)
+    .style("cursor","pointer")
+    .on("mouseover",function(){
+      const f=gfHome?"#3b82f6":gfVisited?"var(--green-hi)":"var(--bg3)";
+      d3.select(this).attr("fill",f);
+      const tip=document.getElementById("map-tip");
+      if(tip){
+        const v=u&&u.visits["GF"];
+        const yrs=v&&v.filter(y=>y).length?` · ${v.filter(y=>y).join(", ")}`:"";
+        tip.textContent="🇬🇫 French Guiana"+yrs;
+        tip.style.display="block";
+      }
+    })
+    .on("mousemove",function(e){
+      const tip=document.getElementById("map-tip");
+      if(!tip)return;
+      const wrap=document.querySelector(".mw");
+      const rect=wrap.getBoundingClientRect();
+      tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-tip.offsetWidth-8)+"px";
+      tip.style.top=Math.max(4,e.clientY-rect.top-32)+"px";
+    })
+    .on("mouseout",function(){
+      d3.select(this).attr("fill",fill);
+      const tip=document.getElementById("map-tip");
+      if(tip)tip.style.display="none";
+    })
+    .on("click",()=>{
+      if("S. America"!==activeCont){activeCont="S. America";renderContTabs();renderList();zoomTo("S. America");}
+      selPlace("GF");
+    });
+}
+
 function refreshColors(){
   if(!gSel)return;
   // Reset ALL strokes to default first, then re-apply selection highlight
@@ -1290,7 +1351,7 @@ function refreshColors(){
     .attr("fill",d=>fillFor(N2A[+d.id]))
     .attr("stroke","var(--bg)")
     .attr("stroke-width",0.4);
-  drawCrimea();
+  drawCrimea();drawFrenchGuiana();
   if(selISO){
     gSel.selectAll("path.cp").filter(d=>N2A[+d.id]===selISO).raise()
       .attr("stroke","var(--green-hi)").attr("stroke-width",1.5);
@@ -1347,42 +1408,117 @@ function saveAddonPrefs(){
 // Fetch addon list from server
 function initAddons(){
   loadAddonPrefs();
-  fetch("/api/addons").then(r=>r.json()).then(list=>{
-    addonMeta=list;
-    renderAddonPanel();
-    // Load any already-enabled addons
-    list.forEach(a=>{ if(addonEnabled[a.id]) loadAddonData(a.id); });
-  }).catch(()=>{}); // not running via start.py — addons unavailable
+  // Show loading state immediately if Addons tab is already active
+  const body=document.getElementById("addon-body");
+  if(body&&activeView==="addons") body.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">Loading addons…</div>`;
+  fetch("/api/addons")
+    .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status); return r.json();})
+    .then(list=>{
+      addonMeta=Array.isArray(list)?list:[];
+      // Load any previously-enabled addons
+      addonMeta.forEach(a=>{ if(addonEnabled[a.id]) loadAddonData(a.id); });
+      // Re-render if Addons tab is visible
+      if(activeView==="addons") renderAddonPanel();
+      updateAddonStats();
+    })
+    .catch(err=>{
+      // Not running via start.py, or addons folder missing
+      addonMeta=[];
+      if(activeView==="addons") renderAddonPanel();
+    });
 }
 
-function toggleAddonPanel(){
-  addonPanelOpen=!addonPanelOpen;
-  document.getElementById("addon-body").style.display=addonPanelOpen?"block":"none";
-  const chev=document.getElementById("addon-chev");
-  if(chev)chev.classList.toggle("open",addonPanelOpen);
+function renderAddonView(){
+  // If meta hasn't loaded yet, trigger a fresh fetch then render
+  if(!addonMeta.length){
+    initAddons();
+  } else {
+    renderAddonPanel();
+    updateAddonMap();
+  }
 }
 
 function renderAddonPanel(){
   const body=document.getElementById("addon-body");
-  const hdrCount=document.getElementById("addon-hdr-count");
   if(!body)return;
   const enabledCount=addonMeta.filter(a=>addonEnabled[a.id]).length;
-  if(hdrCount) hdrCount.textContent=enabledCount?`· ${enabledCount} active`:"";
+  // Update tab badge
+  const tabCount=document.getElementById("addon-tab-count");
+  if(tabCount) tabCount.textContent=enabledCount?`· ${enabledCount} active`:"";
+
   if(!addonMeta.length){
-    body.innerHTML=`<div style="padding:6px 11px;font-size:11px;color:var(--text3)">No addons found in addons/ folder.</div>`;
+    body.innerHTML=`
+      <h2 style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Addons</h2>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        Addons extend Country List with sub-national regions — states, provinces and nations —
+        for specific countries. They are entirely optional and kept separate from your global count.
+      </p>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:14px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:6px">⚠️ No addons found</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">
+          Make sure:<br>
+          • The <code style="color:#2dd4bf">addons/</code> folder exists in your Country List directory<br>
+          • You are running the app via <code style="color:#2dd4bf">./start.py</code> (not directly from file://)<br>
+          • Each addon has an <code style="color:#2dd4bf">addon.json</code> and <code style="color:#2dd4bf">data.js</code> file
+        </div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">🛠 Build your own addon</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+          Any country with sub-national regions can have an addon. See the documentation for the addon format.
+        </div>
+        <a href="https://github.com/jameswintermute/country-list/blob/main/addons/README.md"
+           target="_blank"
+           style="display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+                  padding:5px 12px;font-size:12px;color:var(--text2);text-decoration:none">
+          📖 View addon documentation →
+        </a>
+      </div>`;
     return;
   }
-  body.innerHTML=addonMeta.map(a=>`
-    <div class="addon-row">
-      <input type="checkbox" id="adc-${a.id}" ${addonEnabled[a.id]?"checked":""}
-        onchange="toggleAddon('${a.id}',this.checked)">
-      <label for="adc-${a.id}" class="al" style="cursor:pointer">
-        ${a.countryFlag||"🌍"} ${a.name}
-      </label>
-      <span class="ac">${a.regionCount} regions</span>
-    </div>`).join("");
+
+  const cards=addonMeta.map(a=>{
+    const enabled=addonEnabled[a.id]&&addonLoaded[a.id];
+    const visits=enabled?(()=>{try{return JSON.parse(localStorage.getItem(`cl_addon_${a.id}_${activeUser}`)||"{}");}catch(e){return{};}})():{};
+    const n=Object.keys(visits).length;
+    return`<div style="background:var(--bg2);border:1px solid ${addonEnabled[a.id]?"#2dd4bf":
+      "var(--border)"};border-radius:10px;padding:16px 20px;margin-bottom:14px;transition:border-color .2s;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:24px">${a.countryFlag||"🌍"}</span>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:var(--text)">${a.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">${a.regionCount} regions · ${a.mapSource||""}</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2)">
+          <input type="checkbox" id="adc-${a.id}" ${addonEnabled[a.id]?"checked":""}
+            onchange="toggleAddon('${a.id}',this.checked)" style="accent-color:#2dd4bf;width:16px;height:16px;cursor:pointer">
+          ${addonEnabled[a.id]?"Enabled":"Enable"}
+        </label>
+      </div>
+      ${enabled?`<div style="font-size:12px;color:#2dd4bf">${n} / ${a.regionCount} visited</div>`
+               :`<div style="font-size:12px;color:var(--text3)">${a.description||""}</div>`}
+    </div>`;
+  }).join("");
+
+  body.innerHTML=`
+    <h2 style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px">Addons</h2>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:18px">Track sub-national regions. Counts are kept separate from your sovereign nation total.</p>
+    ${cards}
+    <div id="addon-map-inset"></div>`;
+
   renderAddonSidebar();
   updateAddonStats();
+  // Render active addon maps inline in the view
+  renderAddonMapsInView();
+}
+
+function renderAddonMapsInView(){
+  // Called from renderAddonPanel — renders enabled addon maps into addon-map-inset
+  const inset=document.getElementById("addon-map-inset");
+  if(!inset)return;
+  const enabled=addonMeta.filter(a=>addonEnabled[a.id]&&addonLoaded[a.id]&&window.ADDON_DATA&&window.ADDON_DATA[a.id]);
+  if(!enabled.length){inset.innerHTML="";return;}
+  // Use the existing addon-map-wrap which is in the map view — redirect to here when in addons view
   updateAddonMap();
 }
 
@@ -1403,6 +1539,8 @@ function loadAddonData(id){
     renderAddonSidebar();
     updateAddonStats();
     updateAddonMap();
+    // Refresh the Addons tab view if it's currently visible
+    if(activeView==="addons") renderAddonPanel();
   };
   script.onerror=()=>console.warn("Could not load addon:", id);
   document.head.appendChild(script);
@@ -1549,8 +1687,8 @@ function updateAddonMap(){
   const wrap=document.getElementById("addon-map-wrap");
   if(!wrap) return;
   if(!enabled.length){ wrap.style.display="none"; addonMapId=null; return; }
-  wrap.style.display="";
-  // Show the first enabled addon (or the one whose region is selected)
+  // Only show the inset map panel when in Map view
+  wrap.style.display=activeView==="map"?"":"none";
   const active=selAddonRegion
     ? enabled.find(a=>a.id===selAddonRegion.addonId)||enabled[0]
     : enabled[0];
@@ -1628,8 +1766,8 @@ function renderAddonMap(meta){
       .on("mousemove",function(e){
         const tip=document.getElementById("map-tip");
         if(!tip) return;
-        const rect=document.querySelector(".mw").getBoundingClientRect();
-        tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-140)+"px";
+        const rect=document.getElementById("addon-svg-wrap").getBoundingClientRect();
+        tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-160)+"px";
         tip.style.top=Math.max(4,e.clientY-rect.top-32)+"px";
       })
       .on("mouseout",function(e,d){
