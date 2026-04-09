@@ -1,0 +1,12 @@
+{
+  "id": "canada-provinces",
+  "name": "Canadian Provinces & Territories",
+  "description": "10 provinces and 3 territories of Canada",
+  "country": "CA",
+  "countryFlag": "🇨🇦",
+  "icon": "🍁",
+  "version": "1.0.0",
+  "author": "Country List",
+  "mapSource": "Simplified GeoJSON (approximate boundaries)",
+  "regionCount": 13
+}

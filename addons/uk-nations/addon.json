@@ -1,0 +1,12 @@
+{
+  "id": "uk-nations",
+  "name": "UK Nations",
+  "description": "England, Scotland, Wales and Northern Ireland",
+  "country": "GB",
+  "countryFlag": "🇬🇧",
+  "icon": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "version": "1.0.0",
+  "author": "Country List",
+  "mapSource": "Simplified GeoJSON (approximate boundaries)",
+  "regionCount": 4
+}

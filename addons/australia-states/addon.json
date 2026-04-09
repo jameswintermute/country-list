@@ -1,0 +1,12 @@
+{
+  "id": "australia-states",
+  "name": "Australian States & Territories",
+  "description": "6 states and 2 mainland territories of Australia",
+  "country": "AU",
+  "countryFlag": "🇦🇺",
+  "icon": "🦘",
+  "version": "1.0.0",
+  "author": "Country List",
+  "mapSource": "Simplified GeoJSON (approximate boundaries)",
+  "regionCount": 8
+}
