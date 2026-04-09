@@ -1,5 +1,5 @@
 <!--
-  Country List v1.6.4
+  Country List v1.6.5
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.6.4</title>
+<title>Country List v1.6.5</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -458,7 +458,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.6.4";
+const VERSION="1.6.5";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -1384,7 +1384,6 @@ function zoomTo(cont,instant=false){
 let addonMeta = [];          // from /api/addons
 let addonEnabled = {};       // { addonId: true/false } per session, persisted in localStorage
 let addonLoaded = {};        // { addonId: true } — data.js has been injected
-let addonPanelOpen = false;
 let selAddonRegion = null;   // { addonId, code }
 
 function addonVisitKey(addonId){ return `cl_addon_${addonId}_${activeUser}`; }
@@ -1406,36 +1405,29 @@ function saveAddonPrefs(){
 }
 
 // Fetch addon list from server
-let _addonsFetched=false;
-
 function initAddons(){
   loadAddonPrefs();
+  // Write a loading placeholder immediately — addon-body always exists in DOM
+  const body=document.getElementById("addon-body");
+  if(body) body.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">Loading addons…</div>`;
   fetch("/api/addons")
     .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status); return r.json();})
     .then(list=>{
       addonMeta=Array.isArray(list)?list:[];
-      _addonsFetched=true;
       addonMeta.forEach(a=>{ if(addonEnabled[a.id]) loadAddonData(a.id); });
-      renderAddonPanel(); // always render — safe if body not visible
+      renderAddonPanel();
       updateAddonStats();
     })
     .catch(()=>{
       addonMeta=[];
-      _addonsFetched=true;
       renderAddonPanel();
     });
 }
 
 function renderAddonView(){
-  if(!_addonsFetched){
-    // Still loading — show spinner and wait; initAddons will call renderAddonPanel when done
-    const body=document.getElementById("addon-body");
-    if(body) body.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">Loading addons…</div>`;
-    initAddons();
-  } else {
-    renderAddonPanel();
-    updateAddonMap();
-  }
+  // Content is always kept up-to-date in addon-body by renderAddonPanel.
+  // Just ensure the map inset reflects current state.
+  updateAddonMap();
 }
 
 function renderAddonPanel(){
