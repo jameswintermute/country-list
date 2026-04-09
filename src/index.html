@@ -1,5 +1,5 @@
 <!--
-  Country List v1.6.3
+  Country List v1.6.4
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.6.3</title>
+<title>Country List v1.6.4</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -458,7 +458,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.6.3";
+const VERSION="1.6.4";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -1406,31 +1406,31 @@ function saveAddonPrefs(){
 }
 
 // Fetch addon list from server
+let _addonsFetched=false;
+
 function initAddons(){
   loadAddonPrefs();
-  // Show loading state immediately if Addons tab is already active
-  const body=document.getElementById("addon-body");
-  if(body&&activeView==="addons") body.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">Loading addons…</div>`;
   fetch("/api/addons")
     .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status); return r.json();})
     .then(list=>{
       addonMeta=Array.isArray(list)?list:[];
-      // Load any previously-enabled addons
+      _addonsFetched=true;
       addonMeta.forEach(a=>{ if(addonEnabled[a.id]) loadAddonData(a.id); });
-      // Re-render if Addons tab is visible
-      if(activeView==="addons") renderAddonPanel();
+      renderAddonPanel(); // always render — safe if body not visible
       updateAddonStats();
     })
-    .catch(err=>{
-      // Not running via start.py, or addons folder missing
+    .catch(()=>{
       addonMeta=[];
-      if(activeView==="addons") renderAddonPanel();
+      _addonsFetched=true;
+      renderAddonPanel();
     });
 }
 
 function renderAddonView(){
-  // If meta hasn't loaded yet, trigger a fresh fetch then render
-  if(!addonMeta.length){
+  if(!_addonsFetched){
+    // Still loading — show spinner and wait; initAddons will call renderAddonPanel when done
+    const body=document.getElementById("addon-body");
+    if(body) body.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px 0">Loading addons…</div>`;
     initAddons();
   } else {
     renderAddonPanel();
@@ -1804,8 +1804,6 @@ function renderAddonMap(meta){
   }
 }
 
-// Re-render addon map when user is switched
-const _origSwitchUser=switchUser;
 
 // ── TYPEAHEAD ─────────────────────────────────────────────────────────────────
 function setupTA(inId,dropId){
