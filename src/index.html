@@ -1,5 +1,5 @@
 <!--
-  Country List v1.7.8
+  Country List v1.8.0
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -24,7 +24,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.7.8</title>
+<title>Country List v1.8.0</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -468,7 +468,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.7.8";
+const VERSION="1.8.0";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -768,6 +768,22 @@ function setView(v){
   document.getElementById("vtab-summary").classList.toggle("on",v==="summary");
   document.getElementById("view-map").style.display=v==="map"?"flex":"none";
   document.getElementById("view-summary").style.display=v==="summary"?"flex":"none";
+  if(v==="map"){
+    // Restore correct map state based on sidebar mode
+    const mw=document.querySelector('.mw');
+    const det=document.getElementById('det');
+    const addonWrap=document.getElementById('addon-map-wrap');
+    if(sidebarMode==='addons'){
+      if(mw) mw.style.display='none';
+      if(det) det.style.display='none';
+      if(addonWrap){addonWrap.style.display='';addonWrap.style.flex='1';}
+      addonMapId=null; setTimeout(updateAddonMap,50);
+    } else {
+      if(mw) mw.style.display='';
+      if(det) det.style.display='';
+      if(addonWrap) addonWrap.style.display='none';
+    }
+  }
   if(v==="summary")renderSummary();
 }
 
@@ -839,9 +855,11 @@ function renderDet(){
             title="Click to edit year">
           <span class="x" onclick="rmYr('${selISO}',${y})">×</span>
         </span>`).join("")}
-      <span class="yr-add">
-        <input type="number" id="yr-in" placeholder="year e.g. 2000" min="1920" max="${new Date().getFullYear()}" onkeydown="if(event.key==='Enter'){event.preventDefault();addYr('${selISO}');}" onblur="addYrIfValid('${selISO}')">
-        <button onclick="addYr('${selISO}')">+ Year</button>
+      <span class="yr-add" style="flex:1;min-width:180px;">
+        <input type="text" id="yr-in" placeholder="e.g. 2019, 2022, 2024"
+          style="min-width:150px;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addYears('${selISO}');}">
+        <button onclick="addYears('${selISO}')">+ Add</button>
       </span>
     </div>
   </div>`;
@@ -1895,7 +1913,8 @@ function renderAddonMap(meta){
         const region=data.regions.find(r=>r[1]===code);
         const tip=document.getElementById("map-tip");
         if(tip&&region){
-          tip.textContent=region[2]+" "+region[0];
+          // Show "CA · California" or "NSW · New South Wales"
+          tip.textContent=region[2]+" · "+region[0];
           tip.style.display="block";
         }
       })
@@ -1959,9 +1978,11 @@ function setSidebarMode(mode){
     mc.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--green-dim);border:1px solid var(--green);border-radius:5px 0 0 5px;color:var(--text);font-weight:500;outline:none;';
     ma.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 5px 5px 0;color:var(--text2);outline:none;';
     sc.style.display=''; sa.style.display='none'; sst.style.display='';
-    if(mw) mw.style.display='';
-    if(det) det.style.display='';
-    if(addonWrap) addonWrap.style.display='none';
+    if(activeView==='map'){
+      if(mw) mw.style.display='';
+      if(det) det.style.display='';
+      if(addonWrap) addonWrap.style.display='none';
+    }
     const sbqEl=document.getElementById('sbq');
     if(sbqEl){sbqEl.placeholder='Search countries & territories…';sbqEl.value='';}
     renderList(); refreshColors();
@@ -1971,18 +1992,20 @@ function setSidebarMode(mode){
     sc.style.display='none'; sa.style.display=''; sst.style.display='none';
     const sbqEl2=document.getElementById('sbq');
     if(sbqEl2){sbqEl2.placeholder='Search add-on regions…';sbqEl2.value='';}
-    if(mw) mw.style.display='none';
-    if(det) det.style.display='none';
-    if(addonWrap){
-      addonWrap.style.display='';
-      addonWrap.style.flex='1';
-      const svgWrap=document.getElementById('addon-svg-wrap');
-      if(svgWrap) svgWrap.style.height='100%';
+    // Only swap world map for addon map when in Map view
+    if(activeView==='map'){
+      if(mw) mw.style.display='none';
+      if(det) det.style.display='none';
+      if(addonWrap){
+        addonWrap.style.display='';
+        addonWrap.style.flex='1';
+        const svgWrap=document.getElementById('addon-svg-wrap');
+        if(svgWrap) svgWrap.style.height='100%';
+      }
+      addonMapId=null;
+      setTimeout(updateAddonMap, 50);
     }
     renderAddonSidebarOnly();
-    // Small delay to let flex layout complete before measuring dimensions
-    addonMapId=null; // force re-projection with correct dimensions
-    setTimeout(updateAddonMap, 50);
   }
 }
 
