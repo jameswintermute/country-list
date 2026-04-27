@@ -6,10 +6,10 @@ window.ADDON_DATA["uk-nations"] = {
   mapType: "geojson",
   featureCode: f => f.properties.code,
   regions: [
-    ["England","ENG","🏴󠁧󠁢󠁥󠁮󠁧󠁿","nation"],
-    ["Scotland","SCO","🏴󠁧󠁢󠁳󠁣󠁴󠁿","nation"],
-    ["Wales","WAL","🏴󠁧󠁢󠁷󠁬󠁳󠁿","nation"],
-    ["Northern Ireland","NIR","🏴","nation"],
+    ["England","ENG","ENG","nation"],
+    ["Scotland","SCO","SCO","nation"],
+    ["Wales","WAL","WAL","nation"],
+    ["Northern Ireland","NIR","NIR","nation"],
   ],
   mapData: {
     type: "FeatureCollection",

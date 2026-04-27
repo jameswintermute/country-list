@@ -1,5 +1,5 @@
 <!--
-  Country List v1.6.5
+  Country List v1.7.2
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -20,8 +20,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.6.5</title>
+<title>Country List v1.7.2</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -38,10 +41,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 #hdr h1{font-size:15px;font-weight:600;color:var(--green-hi);flex:1;letter-spacing:.02em;}
 #hdr h1 span{color:var(--text2);font-weight:400;font-size:12px;}
 .utabs{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
-.utab{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;white-space:nowrap;}
+.utab{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
 .utab:hover{border-color:var(--green-dim);color:var(--text);}
 .utab.on{background:var(--green-dim);border-color:var(--green);color:var(--text);font-weight:500;}
-.utab-wrap{display:flex;align-items:center;gap:0;}
+.utab-wrap{display:flex;align-items:center;gap:0;flex-shrink:0;}
 .utab-del{background:none;border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--text3);line-height:1;transition:all .15s;}
 .utab-del:hover{background:rgba(248,81,73,.15);color:var(--red);border-color:var(--red);}
 .utab-wrap .utab{border-radius:6px 0 0 6px;}
@@ -301,12 +304,16 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 
 <!-- DELETE USER MODAL -->
 <div class="mbg" id="del-modal">
-  <div class="mdl">
-    <h3>Remove person</h3>
+  <div class="mdl" style="width:400px">
+    <h3 id="del-title">Remove person</h3>
     <p id="del-msg" style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6"></p>
+    <div id="del-picker" style="display:none;margin-bottom:14px">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:8px">Select whose profile to show next:</p>
+      <div id="del-picker-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
     <div class="mft">
       <button class="bcan" onclick="closeDelUser()">Cancel</button>
-      <button class="bok" style="background:var(--red);border-color:var(--red)" onclick="confirmDelUser()">Remove</button>
+      <button class="bok" id="del-confirm-btn" style="background:var(--red);border-color:var(--red)" onclick="confirmDelUser()">Remove</button>
     </div>
   </div>
 </div>
@@ -328,7 +335,7 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
     <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:10px">
       Free software under GNU GPL v3 or later. See https://www.gnu.org/licenses/gpl-3.0.txt
     </div>
-    <div class="mft"><button class="bok" onclick="closeAbout()">Close</button></div>
+    <div class="mft"><button class="bcan" onclick="location.reload(true)" title="Force reload from server, bypassing cache">↺ Force reload</button><button class="bok" onclick="closeAbout()">Close</button></div>
   </div>
 </div>
 
@@ -346,13 +353,21 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
   <div class="vtabs">
     <div class="vtab on" id="vtab-map" onclick="setView('map')">Map</div>
     <div class="vtab" id="vtab-summary" onclick="setView('summary')">Summary</div>
-    <div class="vtab" id="vtab-addons" onclick="setView('addons')">Addons <span id="addon-tab-count" style="font-size:10px;color:var(--text3)"></span></div>
   </div>
 
   <div style="display:flex;flex:1;min-height:0;overflow:hidden">
     <!-- Sidebar (always visible) -->
     <div class="sb">
-      <div class="sbh"><h3>Continents</h3><div class="ctabs" id="ctabs"></div></div>
+      <div class="sbh">
+        <div style="display:flex;margin-bottom:8px;">
+          <button id="mode-countries" onclick="setSidebarMode('countries')"
+            style="flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--green-dim);border:1px solid var(--green);border-radius:5px 0 0 5px;color:var(--text);font-weight:500;outline:none;">Countries</button>
+          <button id="mode-addons" onclick="setSidebarMode('addons')"
+            style="flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 5px 5px 0;color:var(--text2);outline:none;">Add-ons <span id="addon-sb-count" style="color:#2dd4bf"></span></button>
+        </div>
+        <div id="sbh-countries"><h3 style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Continents</h3><div class="ctabs" id="ctabs"></div></div>
+        <div id="sbh-addons" style="display:none;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#2dd4bf;padding-bottom:4px">Add-on regions</div>
+      </div>
       <div class="sbq"><input id="sbq" placeholder="Search countries &amp; territories…" oninput="renderList()"></div>
       <div class="cl" id="cl"></div>
       <div class="sst" id="sst"></div>
@@ -390,11 +405,6 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
     <!-- Summary view -->
     <div id="view-summary" style="display:none;flex:1;overflow-y:auto;padding:20px 24px;flex-direction:column;gap:20px;">
       <div id="sum-content"></div>
-    </div>
-
-    <!-- Addons view -->
-    <div id="view-addons" style="display:none;flex:1;overflow-y:auto;flex-direction:column;">
-      <div id="addon-body" style="padding:16px 20px;max-width:800px;"></div>
     </div>
   </div>
 </div>
@@ -458,7 +468,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.6.5";
+const VERSION="1.7.2";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -624,29 +634,90 @@ function openAdd(){document.getElementById("add-modal").classList.add("on");}
 
 // ── DELETE USER ───────────────────────────────────────────────────────────────
 let _delUserId=null;
+let _delNextUserId=null; // which user to switch to after deletion
+
 function openDelUser(id){
-  const u=users.find(x=>x.id===id);if(!u)return;
-  if(users.length===1){alert("You cannot remove the only person.");return;}
+  const u=users.find(x=>x.id===id); if(!u) return;
   _delUserId=id;
+  _delNextUserId=null;
+
   const nc=Object.keys(u.visits).length;
+  const others=users.filter(x=>x.id!==id);
+  const isLast=others.length===0;
+
+  document.getElementById("del-title").textContent=
+    isLast ? "Remove your profile" : `Remove ${u.first} ${u.last}`;
+
   document.getElementById("del-msg").textContent=
-    `Remove ${u.first} ${u.last}? They have ${nc} place${nc!==1?"s":""} recorded. `+
-    `This cannot be undone — export their CSV first if you want to keep their data.`;
+    `${u.first} ${u.last} has ${nc} place${nc!==1?"s":""} recorded. `+
+    (isLast
+      ? "Removing them will return to the welcome screen. This cannot be undone — export their CSV first if you want to keep their data."
+      : "This cannot be undone — export their CSV first if you want to keep their data.");
+
+  // Show user picker if multiple others exist
+  const picker=document.getElementById("del-picker");
+  const pickerList=document.getElementById("del-picker-list");
+  if(others.length > 1){
+    // Pre-select first other user
+    _delNextUserId=others[0].id;
+    pickerList.innerHTML=others.map(o=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);
+                    border-radius:5px;cursor:pointer;font-size:13px;">
+        <input type="radio" name="del-next" value="${o.id}"
+          ${o.id===_delNextUserId?"checked":""}
+          onchange="_delNextUserId=this.value"
+          style="accent-color:var(--green);cursor:pointer">
+        ${o.first} ${o.last}
+      </label>`).join("");
+    picker.style.display="";
+  } else {
+    picker.style.display="none";
+    _delNextUserId=others.length===1 ? others[0].id : null;
+  }
+
+  document.getElementById("del-confirm-btn").textContent=
+    isLast ? "Remove and restart" : "Remove";
+
   document.getElementById("del-modal").classList.add("on");
 }
-function closeDelUser(){document.getElementById("del-modal").classList.remove("on");_delUserId=null;}
+
+function closeDelUser(){
+  document.getElementById("del-modal").classList.remove("on");
+  _delUserId=null; _delNextUserId=null;
+}
+
 function confirmDelUser(){
-  if(!_delUserId)return;
+  if(!_delUserId) return;
   const u=users.find(x=>x.id===_delUserId);
+  const isLast=users.filter(x=>x.id!==_delUserId).length===0;
+
+  // Remove user data
   users=users.filter(x=>x.id!==_delUserId);
-  // Remove from localStorage
   localStorage.removeItem("cl_csv_"+_delUserId);
-  // If we deleted the active user, switch to the first remaining
-  if(activeUser===_delUserId) activeUser=users[0]?.id||null;
-  selISO=null;
-  save();closeDelUser();
-  renderTabs();renderList();updateStats();renderDet();refreshColors();
-  if(activeView==="summary")renderSummary();
+  localStorage.removeItem("cl_addon_enabled");
+  selISO=null; selAddonRegion=null;
+  save();
+  closeDelUser();
+
+  if(isLast){
+    // No users left — wipe state and show welcome screen
+    activeUser=null;
+    document.getElementById("app").style.display="none";
+    document.getElementById("btn-add").style.display="none";
+    document.getElementById("btn-import").style.display="none";
+    document.getElementById("setup").style.display="";
+    // Clear setup form
+    ["s-first","s-last","s-cty"].forEach(id=>{
+      const e=document.getElementById(id); if(e){e.value="";delete e.dataset.iso;}
+    });
+    mapInited=false; // force map re-init next time
+    return;
+  }
+
+  // Switch to chosen next user (or first remaining)
+  activeUser=_delNextUserId||users[0].id;
+  renderTabs(); renderContTabs(); renderList(); updateStats(); renderDet(); refreshColors();
+  if(activeView==="summary") renderSummary();
 }
 function closeAdd(){document.getElementById("add-modal").classList.remove("on");}
 function confirmAdd(){
@@ -665,12 +736,9 @@ function setView(v){
   activeView=v;
   document.getElementById("vtab-map").classList.toggle("on",v==="map");
   document.getElementById("vtab-summary").classList.toggle("on",v==="summary");
-  document.getElementById("vtab-addons").classList.toggle("on",v==="addons");
   document.getElementById("view-map").style.display=v==="map"?"flex":"none";
   document.getElementById("view-summary").style.display=v==="summary"?"flex":"none";
-  document.getElementById("view-addons").style.display=v==="addons"?"flex":"none";
   if(v==="summary")renderSummary();
-  if(v==="addons")renderAddonView();
 }
 
 // ── CONTINENT TABS ────────────────────────────────────────────────────────────
@@ -1155,14 +1223,14 @@ function initMap(){
     .then(world=>{
       document.getElementById("mload").style.display="none";
       gFeats=topojson.feature(world,world.objects.countries).features;
-      drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);
+      drawMap();drawCrimea();zoomTo(activeCont,true);
     })
     .catch(()=>{document.getElementById("mload").textContent="Map requires start.py — run: python3 start.py";});
   new ResizeObserver(()=>{
     const w2=wrap.clientWidth,h2=wrap.clientHeight;
     svgSel.attr("width",w2).attr("height",h2);
     proj.translate([w2/2,h2/2]);
-    if(gFeats.length){drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);}
+    if(gFeats.length){drawMap();drawCrimea();zoomTo(activeCont,true);}
   }).observe(wrap);
 }
 
@@ -1279,70 +1347,6 @@ function drawCrimea(){
 }
 
 
-// ── FRENCH GUIANA OVERLAY ─────────────────────────────────────────────────────
-// Natural Earth merges French Guiana into France's polygon at 110m scale.
-// We overlay French Guiana separately so it only colours when GF is visited,
-// not whenever France (FR) is visited.
-const FRENCH_GUIANA_GEOJSON = {
-  type:"Feature",
-  properties:{name:"French Guiana"},
-  geometry:{
-    type:"Polygon",
-    coordinates:[[
-      [-54.5,2.3],[-53.0,2.3],[-52.7,2.4],[-51.6,4.1],[-51.7,4.8],
-      [-52.4,5.0],[-53.8,5.8],[-54.2,5.7],[-54.5,4.9],[-54.4,3.8],
-      [-54.5,2.3]
-    ]]
-  }
-};
-
-function drawFrenchGuiana(){
-  if(!gSel||!path)return;
-  gSel.selectAll("path.guf-overlay").remove();
-  const u=getUser();
-  const gfVisited=u&&u.visits["GF"]!==undefined;
-  const gfHome=u&&u.country==="GF";
-  // Only draw the overlay if GF is NOT visited — when visited, show it distinctly
-  // If not visited, draw it in the same colour as France's base polygon
-  // so it blends in; only pop out when GF itself is marked visited
-  const fill=gfHome?"var(--blue)":gfVisited?"var(--green)":fillFor("FR");
-  gSel.append("path")
-    .attr("class","cp guf-overlay")
-    .datum(FRENCH_GUIANA_GEOJSON)
-    .attr("d",path)
-    .attr("fill",fill)
-    .attr("stroke","var(--bg)")
-    .attr("stroke-width",0.4)
-    .style("cursor","pointer")
-    .on("mouseover",function(){
-      const f=gfHome?"#3b82f6":gfVisited?"var(--green-hi)":"var(--bg3)";
-      d3.select(this).attr("fill",f);
-      const tip=document.getElementById("map-tip");
-      if(tip){
-        const v=u&&u.visits["GF"];
-        const yrs=v&&v.filter(y=>y).length?` · ${v.filter(y=>y).join(", ")}`:"";
-        tip.textContent="🇬🇫 French Guiana"+yrs;
-        tip.style.display="block";
-      }
-    })
-    .on("mousemove",function(e){
-      const tip=document.getElementById("map-tip");
-      if(!tip)return;
-      const wrap=document.querySelector(".mw");
-      const rect=wrap.getBoundingClientRect();
-      tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-tip.offsetWidth-8)+"px";
-      tip.style.top=Math.max(4,e.clientY-rect.top-32)+"px";
-    })
-    .on("mouseout",function(){
-      d3.select(this).attr("fill",fill);
-      const tip=document.getElementById("map-tip");
-      if(tip)tip.style.display="none";
-    })
-    .on("click",()=>{
-      if("S. America"!==activeCont){activeCont="S. America";renderContTabs();renderList();zoomTo("S. America");}
-      selPlace("GF");
-    });
-}
 
 function refreshColors(){
   if(!gSel)return;
@@ -1351,7 +1355,7 @@ function refreshColors(){
     .attr("fill",d=>fillFor(N2A[+d.id]))
     .attr("stroke","var(--bg)")
     .attr("stroke-width",0.4);
-  drawCrimea();drawFrenchGuiana();
+  drawCrimea();
   if(selISO){
     gSel.selectAll("path.cp").filter(d=>N2A[+d.id]===selISO).raise()
       .attr("stroke","var(--green-hi)").attr("stroke-width",1.5);
@@ -1519,6 +1523,7 @@ function toggleAddon(id, enabled){
   saveAddonPrefs();
   if(enabled && !addonLoaded[id]) loadAddonData(id);
   else { renderAddonSidebar(); updateAddonStats(); updateAddonMap(); }
+  if(sidebarMode==='addons') renderAddonSidebarOnly();
   renderAddonPanel();
 }
 
@@ -1531,8 +1536,8 @@ function loadAddonData(id){
     renderAddonSidebar();
     updateAddonStats();
     updateAddonMap();
-    // Refresh the Addons tab view if it's currently visible
-    if(activeView==="addons") renderAddonPanel();
+    if(sidebarMode==='addons') renderAddonSidebarOnly();
+    renderAddonPanel();
   };
   script.onerror=()=>console.warn("Could not load addon:", id);
   document.head.appendChild(script);
@@ -1555,7 +1560,7 @@ function renderAddonSidebar(){
     sep.textContent=`── ${a.name}`;
     container.appendChild(sep);
     data.regions
-      .filter(r=>!q||r[0].toLowerCase().includes(q))
+      .filter(r=>!q||r[0].toLowerCase().includes(q)||r[1].toLowerCase().includes(q)||(r[2]&&r[2].toLowerCase().includes(q)))
       .forEach(r=>{
         const [name,code,flag]=r;
         const vis=visits[code]!==undefined;
@@ -1571,8 +1576,9 @@ function renderAddonSidebar(){
 
 function selAddonPlace(addonId, code){
   selAddonRegion={addonId,code};
-  selISO=null; // deselect any country
-  renderAddonSidebar();
+  selISO=null;
+  if(sidebarMode==='addons') renderAddonSidebarOnly();
+  else renderAddonSidebar();
   renderAddonDet();
   updateAddonMap();
 }
@@ -1796,6 +1802,97 @@ function renderAddonMap(meta){
   }
 }
 
+
+
+// ── SIDEBAR MODE (Countries / Add-ons) ───────────────────────────────────────
+let sidebarMode='countries';
+
+function setSidebarMode(mode){
+  sidebarMode=mode;
+  const mc=document.getElementById('mode-countries');
+  const ma=document.getElementById('mode-addons');
+  const sc=document.getElementById('sbh-countries');
+  const sa=document.getElementById('sbh-addons');
+  const sst=document.getElementById('sst');
+  const mw=document.querySelector('.mw');
+  const det=document.getElementById('det');
+  const addonWrap=document.getElementById('addon-map-wrap');
+  if(mode==='countries'){
+    mc.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--green-dim);border:1px solid var(--green);border-radius:5px 0 0 5px;color:var(--text);font-weight:500;outline:none;';
+    ma.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 5px 5px 0;color:var(--text2);outline:none;';
+    sc.style.display=''; sa.style.display='none'; sst.style.display='';
+    if(mw) mw.style.display='';
+    if(det) det.style.display='';
+    if(addonWrap) addonWrap.style.display='none';
+    renderList(); refreshColors();
+  } else {
+    ma.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:#2dd4bf22;border:1px solid #2dd4bf;border-left:none;border-radius:0 5px 5px 0;color:#2dd4bf;font-weight:500;outline:none;';
+    mc.style.cssText='flex:1;padding:5px 4px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:5px 0 0 5px;color:var(--text2);outline:none;';
+    sc.style.display='none'; sa.style.display=''; sst.style.display='none';
+    if(mw) mw.style.display='none';
+    if(det) det.style.display='none';
+    if(addonWrap){
+      addonWrap.style.display='';
+      addonWrap.style.flex='1';
+      const svgWrap=document.getElementById('addon-svg-wrap');
+      if(svgWrap) svgWrap.style.height='100%';
+    }
+    renderAddonSidebarOnly();
+    updateAddonMap();
+  }
+}
+
+function renderAddonSidebarOnly(){
+  const u=getUser(); if(!u) return;
+  const container=document.getElementById('cl');
+  container.innerHTML='';
+  // Addon enable/disable rows
+  if(addonMeta.length){
+    addonMeta.forEach(a=>{
+      const enabled=addonEnabled[a.id];
+      const visits=enabled&&addonLoaded[a.id]?getAddonVisits(a.id):{};
+      const n=Object.keys(visits).length;
+      const total=window.ADDON_DATA&&window.ADDON_DATA[a.id]?window.ADDON_DATA[a.id].regions.length:0;
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border2);';
+      row.innerHTML=`<span style="font-size:15px">${a.countryFlag||'🌍'}</span>`
+        +`<span style="flex:1;font-size:12px;color:${enabled?'var(--text)':'var(--text3)'}">${a.name}${enabled&&total?` <span style="color:#2dd4bf;font-size:10px">${n}/${total}</span>`:''}</span>`
+        +`<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">`
+        +`<input type="checkbox" ${enabled?'checked':''} onchange="toggleAddon('${a.id}',this.checked)" style="accent-color:#2dd4bf;cursor:pointer;">`
+        +`${enabled?'on':'off'}</label>`;
+      container.appendChild(row);
+    });
+  } else {
+    container.innerHTML='<div style="padding:12px 11px;color:var(--text3);font-size:12px">Loading add-ons…</div>';
+  }
+  // Region list for enabled addons
+  const enabled=addonMeta.filter(a=>addonEnabled[a.id]&&addonLoaded[a.id]&&window.ADDON_DATA&&window.ADDON_DATA[a.id]);
+  enabled.forEach(a=>{
+    const data=window.ADDON_DATA[a.id];
+    const visits=getAddonVisits(a.id);
+    const q=(document.getElementById('sbq').value||'').toLowerCase();
+    const sep=document.createElement('div');
+    sep.className='addon-sep';
+    sep.textContent=a.name;
+    container.appendChild(sep);
+    data.regions.filter(r=>!q||r[0].toLowerCase().includes(q)).forEach(r=>{
+      const [name,code,abbr]=r;
+      const vis=visits[code]!==undefined;
+      const cur=selAddonRegion&&selAddonRegion.addonId===a.id&&selAddonRegion.code===code;
+      const div=document.createElement('div');
+      div.className='ci'+(vis?' addon-vis':'')+(cur?' cur':'');
+      div.innerHTML=`<span class="f" style="font-size:10px;font-weight:600;color:var(--text3);min-width:28px">${abbr||code}</span><span class="n">${name}</span>${vis?'<span class="yy">✓</span>':''}`;
+      div.onclick=()=>selAddonPlace(a.id,code);
+      container.appendChild(div);
+    });
+  });
+  // Update count badge
+  const sbCount=document.getElementById('addon-sb-count');
+  if(sbCount){
+    const total=addonMeta.filter(a=>addonEnabled[a.id]&&addonLoaded[a.id]).reduce((s,a)=>s+Object.keys(getAddonVisits(a.id)).length,0);
+    sbCount.textContent=total?`(${total})`:'';
+  }
+}
 
 // ── TYPEAHEAD ─────────────────────────────────────────────────────────────────
 function setupTA(inId,dropId){
