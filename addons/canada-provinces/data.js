@@ -39,3 +39,6 @@ window.ADDON_DATA["canada-provinces"] = {
     ]
   }
 };
+
+window.ADDON_DATA["canada-provinces"].areaKm2 = {"AB": 661848, "BC": 944735, "MB": 647797, "NB": 72908, "NL": 405212, "NS": 55284, "ON": 1076395, "PE": 5660, "QC": 1542056, "SK": 651036, "NT": 1346106, "NU": 2093190, "YT": 482443};
+window.ADDON_DATA["canada-provinces"].totalAreaKm2 = 9985000;

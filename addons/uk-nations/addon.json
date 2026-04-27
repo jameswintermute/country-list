@@ -3,10 +3,13 @@
   "name": "UK Nations",
   "description": "England, Scotland, Wales and Northern Ireland",
   "country": "GB",
-  "countryFlag": "🇬🇧",
-  "icon": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "countryFlag": "\ud83c\uddec\ud83c\udde7",
+  "icon": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f",
   "version": "1.0.0",
   "author": "Country List",
   "mapSource": "Simplified GeoJSON (approximate boundaries)",
-  "regionCount": 4
+  "regionCount": 4,
+  "landmassKm2": 244000,
+  "landmassPctEarth": 0.16,
+  "landmassNote": "The United Kingdom covers four nations on two islands"
 }

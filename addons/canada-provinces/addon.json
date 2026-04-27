@@ -3,10 +3,13 @@
   "name": "Canadian Provinces & Territories",
   "description": "10 provinces and 3 territories of Canada",
   "country": "CA",
-  "countryFlag": "🇨🇦",
-  "icon": "🍁",
+  "countryFlag": "\ud83c\udde8\ud83c\udde6",
+  "icon": "\ud83c\udf41",
   "version": "1.0.0",
   "author": "Country List",
   "mapSource": "Simplified GeoJSON (approximate boundaries)",
-  "regionCount": 13
+  "regionCount": 13,
+  "landmassKm2": 9985000,
+  "landmassPctEarth": 6.71,
+  "landmassNote": "Canada is the world's 2nd largest country by area"
 }

@@ -30,3 +30,6 @@ window.ADDON_DATA["australia-states"] = {
     ]
   }
 };
+
+window.ADDON_DATA["australia-states"].areaKm2 = {"NSW": 800642, "VIC": 227416, "QLD": 1730648, "WA": 2529875, "SA": 983482, "TAS": 68401, "ACT": 2358, "NT": 1349129};
+window.ADDON_DATA["australia-states"].totalAreaKm2 = 7688000;

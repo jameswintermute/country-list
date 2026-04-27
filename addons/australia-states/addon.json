@@ -3,10 +3,13 @@
   "name": "Australian States & Territories",
   "description": "6 states and 2 mainland territories of Australia",
   "country": "AU",
-  "countryFlag": "🇦🇺",
-  "icon": "🦘",
+  "countryFlag": "\ud83c\udde6\ud83c\uddfa",
+  "icon": "\ud83e\udd98",
   "version": "1.0.0",
   "author": "Country List",
   "mapSource": "Simplified GeoJSON (approximate boundaries)",
-  "regionCount": 8
+  "regionCount": 8,
+  "landmassKm2": 7688000,
+  "landmassPctEarth": 5.16,
+  "landmassNote": "Australia is the world's 6th largest country by area"
 }

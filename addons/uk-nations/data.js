@@ -21,3 +21,6 @@ window.ADDON_DATA["uk-nations"] = {
     ]
   }
 };
+
+window.ADDON_DATA["uk-nations"].areaKm2 = {"ENG": 130279, "SCO": 78772, "WAL": 20779, "NIR": 13843};
+window.ADDON_DATA["uk-nations"].totalAreaKm2 = 244000;
