@@ -1,5 +1,5 @@
 <!--
-  Country List v1.6.5
+  Country List v1.6.9
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.6.5</title>
+<title>Country List v1.6.9</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -458,7 +458,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.6.5";
+const VERSION="1.6.9";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -1155,14 +1155,14 @@ function initMap(){
     .then(world=>{
       document.getElementById("mload").style.display="none";
       gFeats=topojson.feature(world,world.objects.countries).features;
-      drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);
+      drawMap();drawCrimea();zoomTo(activeCont,true);
     })
     .catch(()=>{document.getElementById("mload").textContent="Map requires start.py — run: python3 start.py";});
   new ResizeObserver(()=>{
     const w2=wrap.clientWidth,h2=wrap.clientHeight;
     svgSel.attr("width",w2).attr("height",h2);
     proj.translate([w2/2,h2/2]);
-    if(gFeats.length){drawMap();drawCrimea();drawFrenchGuiana();zoomTo(activeCont,true);}
+    if(gFeats.length){drawMap();drawCrimea();zoomTo(activeCont,true);}
   }).observe(wrap);
 }
 
@@ -1279,70 +1279,6 @@ function drawCrimea(){
 }
 
 
-// ── FRENCH GUIANA OVERLAY ─────────────────────────────────────────────────────
-// Natural Earth merges French Guiana into France's polygon at 110m scale.
-// We overlay French Guiana separately so it only colours when GF is visited,
-// not whenever France (FR) is visited.
-const FRENCH_GUIANA_GEOJSON = {
-  type:"Feature",
-  properties:{name:"French Guiana"},
-  geometry:{
-    type:"Polygon",
-    coordinates:[[
-      [-54.5,2.3],[-53.0,2.3],[-52.7,2.4],[-51.6,4.1],[-51.7,4.8],
-      [-52.4,5.0],[-53.8,5.8],[-54.2,5.7],[-54.5,4.9],[-54.4,3.8],
-      [-54.5,2.3]
-    ]]
-  }
-};
-
-function drawFrenchGuiana(){
-  if(!gSel||!path)return;
-  gSel.selectAll("path.guf-overlay").remove();
-  const u=getUser();
-  const gfVisited=u&&u.visits["GF"]!==undefined;
-  const gfHome=u&&u.country==="GF";
-  // Only draw the overlay if GF is NOT visited — when visited, show it distinctly
-  // If not visited, draw it in the same colour as France's base polygon
-  // so it blends in; only pop out when GF itself is marked visited
-  const fill=gfHome?"var(--blue)":gfVisited?"var(--green)":fillFor("FR");
-  gSel.append("path")
-    .attr("class","cp guf-overlay")
-    .datum(FRENCH_GUIANA_GEOJSON)
-    .attr("d",path)
-    .attr("fill",fill)
-    .attr("stroke","var(--bg)")
-    .attr("stroke-width",0.4)
-    .style("cursor","pointer")
-    .on("mouseover",function(){
-      const f=gfHome?"#3b82f6":gfVisited?"var(--green-hi)":"var(--bg3)";
-      d3.select(this).attr("fill",f);
-      const tip=document.getElementById("map-tip");
-      if(tip){
-        const v=u&&u.visits["GF"];
-        const yrs=v&&v.filter(y=>y).length?` · ${v.filter(y=>y).join(", ")}`:"";
-        tip.textContent="🇬🇫 French Guiana"+yrs;
-        tip.style.display="block";
-      }
-    })
-    .on("mousemove",function(e){
-      const tip=document.getElementById("map-tip");
-      if(!tip)return;
-      const wrap=document.querySelector(".mw");
-      const rect=wrap.getBoundingClientRect();
-      tip.style.left=Math.min(e.clientX-rect.left+12,rect.width-tip.offsetWidth-8)+"px";
-      tip.style.top=Math.max(4,e.clientY-rect.top-32)+"px";
-    })
-    .on("mouseout",function(){
-      d3.select(this).attr("fill",fill);
-      const tip=document.getElementById("map-tip");
-      if(tip)tip.style.display="none";
-    })
-    .on("click",()=>{
-      if("S. America"!==activeCont){activeCont="S. America";renderContTabs();renderList();zoomTo("S. America");}
-      selPlace("GF");
-    });
-}
 
 function refreshColors(){
   if(!gSel)return;
@@ -1351,7 +1287,7 @@ function refreshColors(){
     .attr("fill",d=>fillFor(N2A[+d.id]))
     .attr("stroke","var(--bg)")
     .attr("stroke-width",0.4);
-  drawCrimea();drawFrenchGuiana();
+  drawCrimea();
   if(selISO){
     gSel.selectAll("path.cp").filter(d=>N2A[+d.id]===selISO).raise()
       .attr("stroke","var(--green-hi)").attr("stroke-width",1.5);
