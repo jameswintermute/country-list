@@ -1,5 +1,5 @@
 <!--
-  Country List v1.7.3
+  Country List v1.7.4
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -24,7 +24,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.7.3</title>
+<title>Country List v1.7.4</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -468,7 +468,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.7.3";
+const VERSION="1.7.4";
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let users=[],activeUser=null,activeCont="Europe",selISO=null,activeView="map";
@@ -1592,7 +1592,9 @@ function renderAddonDet(){
   const visits=getAddonVisits(addonId);
   const vis=visits[code]!==undefined;
   const meta=addonMeta.find(a=>a.id===addonId);
+  // In addons mode, make the det panel visible so the user can interact with it
   const el=document.getElementById("det");
+  if(sidebarMode==='addons') el.style.display='';
   el.innerHTML=`<div class="di">
     <div class="dn">${flag} ${name}</div>
     <div class="dm">${meta?meta.name:addonId} · ${type} <span style="color:#2dd4bf;font-size:10px">addon</span></div>
@@ -1621,11 +1623,15 @@ function renderAddonDet(){
 
 function addonMarkVis(id,code){
   const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
-  setAddonVisits(id,v); renderAddonSidebar(); renderAddonDet(); updateAddonStats(); updateAddonMap();
+  setAddonVisits(id,v);
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
+  renderAddonDet(); updateAddonStats(); updateAddonMap();
 }
 function addonUnvisit(id,code){
   const v=getAddonVisits(id); delete v[code];
-  setAddonVisits(id,v); renderAddonSidebar(); renderAddonDet(); updateAddonStats(); updateAddonMap();
+  setAddonVisits(id,v);
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
+  renderAddonDet(); updateAddonStats(); updateAddonMap();
 }
 function addonAddYr(id,code){
   const el=document.getElementById("yr-in"); if(!el) return;
@@ -1633,7 +1639,8 @@ function addonAddYr(id,code){
   if(!yr||yr<1920||yr>new Date().getFullYear()){if(el.value)alert("Enter a valid year");return;}
   const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
   if(!v[code].includes(yr)){v[code].push(yr);v[code].sort((a,b)=>a-b);}
-  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+  setAddonVisits(id,v); renderAddonDet();
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
 }
 function addonAddYrIfValid(id,code){
   const el=document.getElementById("yr-in"); if(!el||!el.value) return;
@@ -1641,12 +1648,14 @@ function addonAddYrIfValid(id,code){
   if(!yr||yr<1920||yr>new Date().getFullYear()) return;
   const v=getAddonVisits(id); if(v[code]===undefined) v[code]=[];
   if(!v[code].includes(yr)){v[code].push(yr);v[code].sort((a,b)=>a-b);}
-  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+  setAddonVisits(id,v); renderAddonDet();
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
 }
 function addonRmYr(id,code,yr){
   const v=getAddonVisits(id); if(!v[code]) return;
   v[code]=v[code].filter(y=>y!==yr); if(!v[code].length) delete v[code];
-  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+  setAddonVisits(id,v); renderAddonDet();
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
 }
 function addonEditYr(id,code,oldYr,newStr){
   const nv=parseInt(newStr); if(!nv||nv<1920||nv>new Date().getFullYear()||nv===oldYr) return;
@@ -1654,7 +1663,8 @@ function addonEditYr(id,code,oldYr,newStr){
   v[code]=v[code].filter(y=>y!==oldYr);
   if(!v[code].includes(nv)) v[code].push(nv);
   v[code].sort((a,b)=>a-b);
-  setAddonVisits(id,v); renderAddonDet(); renderAddonSidebar();
+  setAddonVisits(id,v); renderAddonDet();
+  if(sidebarMode==='addons') renderAddonSidebarOnly(); else renderAddonSidebar();
 }
 
 // Addon stats in toolbar (separate from sovereign nation count)
