@@ -6,7 +6,7 @@ window.ADDON_DATA["us-states"] = {
   id: "us-states",
   color: "#2dd4bf",
   mapType: "us-albers",
-  mapUrl: "https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json",
+  mapUrl: "https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-albers-10m.json",
   // Match feature id (FIPS) to region code
   featureCode: f => US_FIPS[+f.id] || null,
   regions: [

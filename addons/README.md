@@ -36,16 +36,18 @@ Addon totals are always shown separately: *"40 countries · 8 territories · 32 
 Copy an existing addon folder and edit `addon.json` and `data.js`.
 The app will discover it automatically on next restart.
 
-`data.js` must assign to `window.ADDON_DATA` before the script ends:
+`data.js` is executable local JavaScript, so only install add-ons you trust. It
+must register its object under its own ID without replacing other loaded add-ons:
 
 ```js
-window.ADDON_DATA = {
+window.ADDON_DATA = window.ADDON_DATA || {};
+window.ADDON_DATA["my-addon"] = {
   id: "my-addon",          // must match folder name
   regions: [
     // [name, code, flag/emoji, subtype]
     ["Region Name", "CODE", "🏴", "state"],
   ],
-  // For map rendering — either a CDN URL or inline GeoJSON
+  // For map rendering — prefer pinned URLs or inline GeoJSON
   mapType: "geojson",      // "geojson" | "us-albers"
   mapData: { /* GeoJSON FeatureCollection */ },
   // Function to match a feature to a region code
