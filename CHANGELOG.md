@@ -6,6 +6,26 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.6] — 2026-08-19
+
+### Fixed
+- **Add-ons from Summary** — selecting the Add-ons sidebar mode now moves to
+  Map view automatically, where add-on maps and region detail controls are
+  available, instead of leaving the user in a sidebar-only state.
+
+### Changed
+- **Years Active drill-down** — timeline bars and year columns are now
+  interactive. Clicking a person's bar filters the existing left-hand place
+  list to countries/territories visited by that person in that year; family
+  bars switch to the matching profile first.
+- Timeline drill-down automatically selects **All** continents so matching
+  visits are not hidden by the previous continent filter. A visible year pill
+  above the list shows the active drill-down and provides a one-click clear.
+- Hover remains informational only; drill-down is deliberately click/keyboard
+  activated so moving the pointer does not unexpectedly change the data list.
+
+---
+
 ## [1.8.5] — 2026-08-19
 
 ### Fixed

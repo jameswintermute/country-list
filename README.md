@@ -2,7 +2,7 @@
 
 [![GPL-3.0 License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![Local First](https://img.shields.io/badge/local--first-green)](src/index.html)
-[![Version](https://img.shields.io/badge/version-1.8.5-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.6-brightgreen)](CHANGELOG.md)
 [![CI](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml/badge.svg)](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml)
 
 **Track every country and territory you have visited over your lifetime.**

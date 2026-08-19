@@ -48,7 +48,7 @@ for (const [numeric, iso] of [[48,'BH'],[112,'BY'],[84,'BZ'],[72,'BW'],[96,'BN']
 assert.strictEqual(run(`featureISO({id:'826',properties:{name:'United Kingdom'}})`), 'GB');
 assert.strictEqual(run(`featureISO({properties:{name:'Kosovo'}})`), 'XK');
 assert.strictEqual(run(`featureISO({properties:{__iso:'UA'}})`), 'UA');
-assert.strictEqual(run(`VERSION`), '1.8.5');
+assert.strictEqual(run(`VERSION`), '1.8.6');
 
 // Year handling is consistent and rejects out-of-range values.
 const currentYear = new Date().getFullYear();
@@ -217,5 +217,20 @@ assert(summarySource.includes('style="width:${COL_W}px;min-width:${COL_W}px"'), 
 assert(summarySource.includes('const BAR_H=105;'), 'timeline should use the expanded readable height');
 assert(!html.includes('.tl-col{display:flex;flex-direction:column;align-items:center;gap:2px;width:28px;}'), 'timeline must not restore the overlapping fixed-width columns');
 assert(html.includes('.tl-yr{font-size:10px'), 'timeline year labels should remain readable and horizontal');
+
+
+// Timeline bars drill into the existing country/territory sidebar instead of
+// introducing a second raw-data screen. Family bars identify the owning user.
+assert(summarySource.includes("drillTimeline('${usr.id}',${y})"), 'person bars must drill into the matching user/year');
+assert(summarySource.includes("drillTimeline('${defaultDrillUser.id}',${y})"), 'year columns must drill into the active/default user');
+assert(html.includes('(sidebarYearFilter===null||(u.visits[p[1]]||[]).includes(sidebarYearFilter))'), 'sidebar list must support year drill-down filtering');
+assert(html.includes('activeCont="All";sidebarYearFilter=y;'), 'timeline drill-down must show matching places across all continents');
+assert(html.includes('id="sb-year-filter"'), 'active year drill-down must be visible and clearable');
+
+// Add-ons are interactive in Map view. Clicking Add-ons from Summary must move
+// to that view automatically instead of leaving the user in a sidebar-only dead end.
+const sidebarModeSource = html.match(/function setSidebarMode\(mode\)[\s\S]*?function renderAddonSidebarOnly\(\)/)?.[0] || '';
+assert(sidebarModeSource.includes('if(activeView!=="map")setView("map");'), 'Add-ons must switch Summary to Map view');
+assert(sidebarModeSource.includes('sidebarYearFilter=null;updateSidebarYearFilter();'), 'Add-ons must clear timeline drill-down state');
 
 console.log('app logic tests: ok');
