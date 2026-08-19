@@ -28,14 +28,14 @@ Security boundaries are intentional:
 - caps JSON request bodies at 5 MiB
 - writes CSV files atomically with `os.replace`
 - sends browser hardening headers
-- rejects non-local `Host` headers and cross-site `Origin` headers
+- requires the `Host` header to be localhost on the actual listening port and rejects cross-site `Origin` headers
 - requires `application/json` for write/delete API requests
 
 API routes:
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/api/data-files` | GET | list local CSV/JSON backup filenames |
+| `/api/data-files` | GET | list local CSV/JSON backups with change stamps |
 | `/api/data-file/<filename>` | GET | read one validated local backup for the import banner |
 | `/api/addons` | GET | list discovered add-on metadata |
 | `/api/addon-data/<folder>` | GET | serve a validated add-on `data.js` |
@@ -85,12 +85,13 @@ The old `cl_addon_<addonId>_<userId>` storage format is migrated into
 the user object is important: JSON backup, CSV generation, profile deletion and
 multi-user isolation all operate on the same state.
 
-`localStorage["cl_csv_<userId>"]` remains a convenience rolling CSV copy. When
-running through `start.py`, the same CSV is mirrored into `data/users/`. Disk
-filenames include the stable user ID (`First-Last--<user-id>.csv`) so profiles
-with identical names cannot overwrite one another. Name-only v1.8.1 rolling
-files are removed after a successful ID-based save when that migration is
-unambiguous.
+The earlier `localStorage["cl_csv_<userId>"]` CSV mirrors are redundant with
+`cl_u` and consume the same browser storage quota, so v1.8.3 removes them during
+load. When running through `start.py`, rolling CSV protection is kept under
+`data/users/`. Disk filenames include the stable user ID
+(`First-Last--<user-id>.csv`) so profiles with identical names cannot overwrite
+one another. Name-only v1.8.1 rolling files are removed after a successful
+ID-based save when that migration is unambiguous.
 
 ## Import validation
 
@@ -100,9 +101,11 @@ separate. Current CSV exports also carry User ID; legacy CSVs fall back to an
 unambiguous name/home-country match and are rejected if multiple profiles match.
 
 CSV and JSON imports reject unknown home-country codes, discard unknown
-country/territory visit keys, clamp visit years to `1900..current year`,
-deduplicate years, and restrict add-on IDs and region codes to conservative
-identifier formats.
+country/territory visit keys, clamp visit years to `1900..current year`, and
+deduplicate years. Current CSV files are one profile per file and are rejected
+if identity metadata changes between rows. Add-on CSV rows must match an actual
+region code in the installed add-on definition rather than merely matching a
+syntactic identifier pattern.
 
 CSV output doubles embedded quotes and prefixes cells beginning with `=`, `+`,
 `-` or `@` to prevent spreadsheet formula execution.
@@ -111,8 +114,12 @@ CSV output doubles embedded quotes and prefixes cells beginning with `=`, `+`,
 
 `N2A` is the ISO-3166 numeric-to-alpha-2 mapping used to match world-atlas
 features to the `P` place list. It is intentionally complete rather than a
-hand-maintained subset. Some very small territories may still be absent from
-the 110m Natural Earth geometry and therefore appear only in the sidebar.
+hand-maintained subset. Kosovo is a special case: world-atlas 2.0.2 names the
+feature but supplies no numeric identifier, so `featureISO()` maps that name to
+`XK`. Some very small territories may still be absent from the 110m Natural
+Earth geometry and therefore appear only in the sidebar. The Canary Islands
+(`IC`) are one such list-only destination because the atlas does not separate
+them from Spain.
 
 ## Add-ons
 
@@ -136,16 +143,20 @@ complete regardless of which add-ons are currently visible.
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/check_inline_js.js
 node tests/test_app_logic.js
 ```
 
 The server tests start an ephemeral localhost server and verify static-root
 isolation, backup save/delete behaviour, path validation, add-on routing,
-security headers, JSON content-type enforcement and cross-site request guards.
-The JavaScript tests execute the persistence/import core in a Node VM and cover
-multi-user add-on isolation, legacy migration, CSV import, year validation,
-CSV formula protection, stable profile identity, collision-proof rolling
-filenames and important numeric ISO mappings.
+security headers, JSON content-type enforcement, listening-port Host checks,
+cross-site request guards, import-file change stamps and favicon caching. The
+JavaScript tests execute the persistence/import core in a Node VM and cover
+multi-user add-on isolation, legacy migration, mixed-profile CSV rejection,
+installed add-on region validation, year validation, CSV formula protection,
+stable profile identity, collision-proof rolling filenames and atlas feature
+resolution including Kosovo. `check_inline_js.js` compiles the complete inline
+application script without executing it.
 
 `.github/workflows/ci.yml` runs these tests and syntax checks on pushes to
 `main`, pull requests and manual dispatches.

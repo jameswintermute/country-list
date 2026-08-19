@@ -38,7 +38,7 @@ class ServerTests(unittest.TestCase):
     def test_root_serves_app_but_repo_files_are_not_exposed(self):
         status, headers, body = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn(b"Country List v1.8.2", body)
+        self.assertIn(b"Country List v1.8.3", body)
         self.assertEqual(headers.get("X-Frame-Options"), "DENY")
         self.assertEqual(headers.get("Cross-Origin-Opener-Policy"), "same-origin")
         self.assertEqual(headers.get("Cross-Origin-Resource-Policy"), "same-origin")
@@ -60,6 +60,29 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 404)
         status, _, _ = self.request("GET", "/api/data-file/..%2FREADME.md")
         self.assertEqual(status, 404)
+
+
+    def test_data_file_manifest_stamp_changes_when_file_changes(self):
+        target = start.DATA_USERS / "trip.csv"
+        target.write_text("one", encoding="utf-8")
+        status, _, body = self.request("GET", "/api/data-files")
+        self.assertEqual(status, 200)
+        first = json.loads(body)
+        self.assertEqual(first[0]["name"], "trip.csv")
+        first_stamp = first[0]["stamp"]
+
+        target.write_text("two-two", encoding="utf-8")
+        status, _, body = self.request("GET", "/api/data-files")
+        self.assertEqual(status, 200)
+        second = json.loads(body)
+        self.assertNotEqual(second[0]["stamp"], first_stamp)
+
+    def test_favicon_has_one_cache_policy(self):
+        status, headers, body = self.request("GET", "/favicon.ico")
+        self.assertEqual(status, 200)
+        self.assertGreater(len(body), 0)
+        self.assertEqual(headers.get("Cache-Control"), "public, max-age=86400")
+        self.assertNotIn("Pragma", headers)
 
     def test_save_and_delete_user_backup(self):
         payload = json.dumps({"filename": "James-Wintermute.csv", "csv": '"Name","ISO2"\n'}).encode()
@@ -111,6 +134,11 @@ class ServerTests(unittest.TestCase):
 
         status, _, _ = self.request(
             "GET", "/api/data-files", headers={"Host": "evil.example"}
+        )
+        self.assertEqual(status, 403)
+
+        status, _, _ = self.request(
+            "GET", "/api/data-files", headers={"Host": f"{start.HOST}:1"}
         )
         self.assertEqual(status, 403)
 

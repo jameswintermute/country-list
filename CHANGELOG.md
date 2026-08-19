@@ -6,6 +6,53 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.3] — 2026-08-19
+
+### Fixed
+- **Mixed-profile CSV corruption** — a per-person CSV is now rejected when
+  User ID/name/home-country metadata changes between rows instead of silently
+  merging different people into the first profile.
+- **Add-on CSV validation** — imported add-on rows must reference a region that
+  actually exists in the installed add-on definition; unknown region codes are
+  ignored immediately rather than disappearing after reload.
+- **Kosovo map matching** — world-atlas supplies Kosovo as a named feature with
+  no numeric ISO ID, so map feature resolution now maps the name explicitly to
+  `XK`. Canary Islands remain list/statistics-only because the 110m atlas does
+  not provide a polygon separate from Spain.
+- **Zoom border thickness** — map refreshes preserve zoom-scaled country stroke
+  widths, including the current selection.
+- **Crimea continent dimming** — the Ukraine overlay now uses the same
+  continent-aware fill and zoom-scaled selection stroke as Ukraine.
+- **Map dependency errors** — failed D3/TopoJSON or world-atlas loads now show
+  an accurate network/dependency message instead of claiming `start.py` was not
+  used.
+- **Import banner replacement detection** — import candidates are tracked by a
+  size/mtime stamp rather than filename alone, so replacing a file with the
+  same name offers it again. Dismissing means “not now”; only successful
+  imports are marked as seen.
+- **Favicon caching** — removed conflicting `Cache-Control`/`Pragma` response
+  headers for the favicon.
+
+### Security
+- Local request validation now requires `Host` to name localhost on the actual
+  listening port, tightening the DNS-rebinding guard.
+- Browser-storage writes are guarded so quota/storage failures produce a clear
+  warning instead of throwing midway through a UI operation.
+
+### Changed
+- Removed redundant `cl_csv_<userId>` localStorage mirrors. `cl_u` remains the
+  authoritative browser state and `data/users/` provides the independent rolling
+  CSV backup when running through `start.py`; legacy mirror keys are cleaned on
+  load.
+- Added the actual `.github/workflows/ci.yml` workflow plus a complete inline-JS
+  syntax check. CI now runs launcher compilation, 10 server tests and the Node
+  regression suite.
+- Added Python bytecode/cache ignores.
+- Updated documentation for one-profile-per-CSV semantics and known 110m map
+  coverage limitations.
+
+---
+
 ## [1.8.2] — 2026-08-19
 
 ### Fixed
@@ -33,9 +80,6 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   whose display name is invalid.
 
 ### Maintenance
-- Added the GitHub Actions CI workflow that the v1.8.1 documentation intended to
-  provide: Python tests, JavaScript tests and syntax checks on pushes/PRs.
-- Ignore Python bytecode and `__pycache__` test artefacts.
 - Expanded regression coverage from 6 to 8 server tests and added stable-profile
   identity/filename tests to the JavaScript suite.
 

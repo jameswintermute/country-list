@@ -44,6 +44,12 @@ for (const [numeric, iso] of [[48,'BH'],[112,'BY'],[84,'BZ'],[72,'BW'],[96,'BN']
   assert.strictEqual(run(`N2A[${numeric}]`), iso, `${iso} numeric mapping`);
 }
 
+// Atlas feature resolution includes Kosovo, which world-atlas names but does not number.
+assert.strictEqual(run(`featureISO({id:'826',properties:{name:'United Kingdom'}})`), 'GB');
+assert.strictEqual(run(`featureISO({properties:{name:'Kosovo'}})`), 'XK');
+assert.strictEqual(run(`featureISO({properties:{__iso:'UA'}})`), 'UA');
+assert.strictEqual(run(`VERSION`), '1.8.3');
+
 // Year handling is consistent and rejects out-of-range values.
 const currentYear = new Date().getFullYear();
 assert.deepStrictEqual(Array.from(run(`normaliseYears([2020, "2020", 1899, ${currentYear + 1}, 2021])`)), [2020, 2021]);
@@ -139,5 +145,47 @@ context.conflictBackup = JSON.stringify({version:'1.8.2',users:[
 run(`importJSON_data(conflictBackup)`);
 assert.strictEqual(run(`JSON.stringify(users)`), beforeConflict);
 assert(alerts.some(m=>m.includes('Profile ID conflict')));
+
+// A per-person CSV must not silently combine rows belonging to different profiles.
+alerts.length=0;
+context.window.ADDON_DATA['us-states'] = {regions:[['California','CA','CA','state']]};
+context.addonMeta = [{id:'us-states', name:'US States'}];
+run(`users=[{id:'alice',first:'Alice',last:'Smith',country:'GB',visits:{},addons:{}}]; activeUser='alice';`);
+context.mixedProfileCsv = [
+  '"Name","ISO2","Continent","Type","Years Visited","Addon ID","User ID","User First","User Last","Home ISO2"',
+  '"France","FR","Europe","country","2020","","alice","Alice","Smith","GB"',
+  '"Japan","JP","Asia","country","2022","","bob","Bob","Jones","US"'
+].join('\n');
+assert.strictEqual(run(`importCSV_data(mixedProfileCsv,'mixed.csv')`), false);
+assert.strictEqual(run(`users[0].visits.FR`), undefined);
+assert.strictEqual(run(`users[0].visits.JP`), undefined);
+assert(alerts.some(m=>m.includes('multiple profiles')));
+
+// Add-on CSV rows must match a region actually defined by the installed add-on.
+alerts.length=0;
+run(`users=[{id:'james',first:'James',last:'Wintermute',country:'GB',visits:{},addons:{}}]; activeUser='james';`);
+context.badAddonCsv = [
+  '"Name","ISO2","Continent","Type","Years Visited","Addon ID","User ID","User First","User Last","Home ISO2"',
+  '"Imaginary State","ZZ","US States","state","2020","us-states","james","James","Wintermute","GB"'
+].join('\n');
+assert.strictEqual(run(`importCSV_data(badAddonCsv,'bad-addon.csv')`), true);
+assert.strictEqual(run(`users[0].addons['us-states']`), undefined);
+assert(alerts.some(m=>m.includes('ignored')));
+
+// Redundant v1.8.1/v1.8.2 CSV localStorage mirrors are cleaned on load/migration.
+context.localStorage.setItem('cl_csv_old-user', 'legacy csv mirror');
+context.localStorage.setItem('unrelated', 'keep');
+run(`cleanupLegacyCsvMirrors()`);
+assert.strictEqual(context.localStorage.getItem('cl_csv_old-user'), null);
+assert.strictEqual(context.localStorage.getItem('unrelated'), 'keep');
+
+// Browser storage failures are surfaced rather than throwing through the UI path.
+alerts.length=0;
+run(`storageWarningShown=false; users=[{id:'storage-user',first:'Storage',last:'Test',country:'GB',visits:{},addons:{}}];`);
+const originalSetItem = context.localStorage.setItem;
+context.localStorage.setItem = ()=>{ throw new Error('quota exceeded'); };
+assert.strictEqual(run(`save()`), false);
+assert(alerts.some(m=>m.includes('could not save to browser storage')));
+context.localStorage.setItem = originalSetItem.bind(context.localStorage);
 
 console.log('app logic tests: ok');
