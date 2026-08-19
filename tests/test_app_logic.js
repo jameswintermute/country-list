@@ -48,7 +48,7 @@ for (const [numeric, iso] of [[48,'BH'],[112,'BY'],[84,'BZ'],[72,'BW'],[96,'BN']
 assert.strictEqual(run(`featureISO({id:'826',properties:{name:'United Kingdom'}})`), 'GB');
 assert.strictEqual(run(`featureISO({properties:{name:'Kosovo'}})`), 'XK');
 assert.strictEqual(run(`featureISO({properties:{__iso:'UA'}})`), 'UA');
-assert.strictEqual(run(`VERSION`), '1.8.3');
+assert.strictEqual(run(`VERSION`), '1.8.4');
 
 // Year handling is consistent and rejects out-of-range values.
 const currentYear = new Date().getFullYear();
@@ -187,5 +187,26 @@ context.localStorage.setItem = ()=>{ throw new Error('quota exceeded'); };
 assert.strictEqual(run(`save()`), false);
 assert(alerts.some(m=>m.includes('could not save to browser storage')));
 context.localStorage.setItem = originalSetItem.bind(context.localStorage);
+
+// Summary continent calculations include territories as places. Antarctica is
+// territory-only in P, so this specifically guards the regression where it vanished.
+run(`users=[{
+  id:'polar-user',first:'Polar',last:'Traveller',country:'GB',
+  visits:{AQ:[2024],GB:[],GI:[2022]},addons:{}
+}]; activeUser='polar-user';`);
+const antarcticaPlaces = run(`P.filter(p=>p[2]==='Antarctica')`);
+assert.strictEqual(antarcticaPlaces.length, 3);
+assert.strictEqual(run(`P.filter(p=>p[2]==='Antarctica'&&p[4]==='country').length`), 0);
+assert.strictEqual(run(`P.filter(p=>p[2]==='Antarctica'&&users[0].visits[p[1]]!==undefined).length`), 1);
+
+// Family Overview must use all places, expose Antarctica and label the total clearly.
+// This source-level assertion complements the data regression above while renderSummary
+// remains intentionally embedded in the zero-build HTML application.
+const summarySource = html.match(/function renderSummary\(\)[\s\S]*?function toggleJustMe\(\)/)?.[0] || '';
+assert(summarySource.includes('const places=P.filter(p=>p[2]===c);'), 'summary continent data must include territories');
+assert(summarySource.includes('P.some(p=>p[2]===c)'), 'family overview must include territory-only continents');
+assert(!summarySource.includes('P.some(p=>p[2]===c&&p[4]===\"country\")'), 'family overview must not filter territory-only continents');
+assert(summarySource.includes('<th>Places</th>'), 'family overview total must be labelled Places');
+assert(summarySource.includes('${s.nc+s.nt}'), 'family overview total must include territories');
 
 console.log('app logic tests: ok');

@@ -1,5 +1,5 @@
 <!--
-  Country List v1.8.3
+  Country List v1.8.4
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -24,7 +24,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.8.3</title>
+<title>Country List v1.8.4</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -469,7 +469,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.8.3";
+const VERSION="1.8.4";
 const MIN_YEAR=1900;
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -1307,11 +1307,15 @@ function renderSummary(){
   }
 
   // ── Build continent data for a user ─────────────────────────────────────
+  // Summary continent progress is based on every tracked place in that
+  // continent (countries + territories). This keeps Summary consistent with
+  // the app's overall "countries and territories" model and ensures
+  // territory-only Antarctica is represented.
   function contData(usr){
     return CONTS.filter(c=>c!=="All").map(c=>{
-      const cC=P.filter(p=>p[2]===c&&p[4]==="country");
-      if(!cC.length)return null;
-      return{c,total:cC.length,v:cC.filter(p=>usr.visits[p[1]]!==undefined).length};
+      const places=P.filter(p=>p[2]===c);
+      if(!places.length)return null;
+      return{c,total:places.length,v:places.filter(p=>usr.visits[p[1]]!==undefined).length};
     }).filter(Boolean);
   }
 
@@ -1360,7 +1364,7 @@ function renderSummary(){
       <div class="sum-card"><div class="sc-val">${s.nt}</div><div class="sc-lbl">Territories visited</div><div class="sc-sub">${s.nc+s.nt} total places</div></div>
       <div class="sum-card"><div class="sc-val">${totalC-s.nc}</div><div class="sc-lbl">Countries to go</div><div class="sc-sub">of ${totalC} sovereign nations</div></div>
     </div>
-    <div class="sum-section" style="margin-bottom:18px"><h3>By continent</h3>
+    <div class="sum-section" style="margin-bottom:18px"><h3>By continent · countries + territories</h3>
       ${cd.map(r=>{const pct=Math.round(r.v/r.total*100);return`
       <div class="cont-bar-row">
         <div class="cb-name">${r.c}</div>
@@ -1377,8 +1381,11 @@ function renderSummary(){
   // ── FAMILY OVERVIEW (all users, heatmap) ──────────────────────────────────
   function renderFamilyOverview(){
     const allU=users;
-    const conts=CONTS.filter(c=>c!=="All").filter(c=>P.some(p=>p[2]===c&&p[4]==="country"));
-    const ranked=[...allU].sort((a,b)=>uStats(b).nc-uStats(a).nc);
+    const conts=CONTS.filter(c=>c!=="All").filter(c=>P.some(p=>p[2]===c));
+    const ranked=[...allU].sort((a,b)=>{
+      const sb=uStats(b),sa=uStats(a);
+      return(sb.nc+sb.nt)-(sa.nc+sa.nt);
+    });
 
     // Heatmap: rows=people, cols=continents + total
     const hmRows=ranked.map(usr=>{
@@ -1397,7 +1404,7 @@ function renderSummary(){
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-right:6px"></span>
           ${htmlEscape(usr.first)} ${htmlEscape(usr.last)}
         </td>
-        <td style="text-align:center;font-weight:600;color:${col}">${s.nc}</td>
+        <td style="text-align:center;font-weight:600;color:${col}">${s.nc+s.nt}</td>
         ${cells}
       </tr>`;
     }).join("");
@@ -1411,7 +1418,7 @@ function renderSummary(){
         <table class="heatmap">
           <thead><tr>
             <th class="person-col"></th>
-            <th>Total</th>
+            <th>Places</th>
             ${hmHeaders}
           </tr></thead>
           <tbody>${hmRows}</tbody>
@@ -1474,7 +1481,7 @@ function renderSummary(){
       </div>
     </div>
     <div class="sum-section" style="margin-bottom:18px">
-      <h3>By continent
+      <h3>By continent · countries + territories
         <span style="margin-left:12px;font-size:10px;color:${c1}">■ ${htmlEscape(u1.first)}</span>
         <span style="margin-left:8px;font-size:10px;color:${c2}">■ ${htmlEscape(u2.first)}</span>
       </h3>${contRows}
