@@ -6,6 +6,55 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.1] — 2026-08-19
+
+### Fixed
+- **Localhost exposure** — `start.py` now binds only to `127.0.0.1` and serves
+  static files only from `src/`; repository files and `data/users/` are no
+  longer reachable over the HTTP server.
+- **Cross-user add-on contamination** — add-on visits now live inside each user
+  record instead of being read through the global active-user localStorage key.
+- **Incomplete backups** — JSON exports now include add-on history; CSV exports
+  include stable Addon ID and user metadata columns and remain complete even
+  when an add-on is disabled.
+- **CSV add-on import crash** — resolves the target user before applying add-on
+  rows, removing the temporal-dead-zone `user` reference.
+- **Profile deletion** — removing a profile also removes legacy add-on keys and
+  requests deletion of its rolling `data/users/*.csv` backup.
+- **Stale CSV after removing a year** — disk backup is updated after year
+  removal as well as add/edit operations.
+- **Duplicate year handlers** — removed duplicate `addYrIfValid` and
+  `addonAddYrIfValid` definitions and standardised valid years to 1900 through
+  the current year.
+- **Map ISO coverage** — replaced the hand-maintained numeric ISO subset with a
+  complete ISO-3166 numeric-to-alpha-2 mapping.
+
+### Security
+- Added import normalisation for users, ISO codes, visit years, add-on IDs and
+  region codes.
+- Escaped imported profile names before inserting them into generated HTML.
+- CSV output now escapes embedded quotes and neutralises spreadsheet formula
+  prefixes (`=`, `+`, `-`, `@`).
+- Added a 5 MiB API body limit, safe filename validation, atomic CSV writes and
+  browser hardening headers.
+
+### Changed
+- Runtime CDN dependencies are pinned to D3 7.9.0, TopoJSON Client 3.1.0,
+  world-atlas 2.0.2 and us-atlas 3.0.1.
+- Documentation now describes the application accurately as **local-first**:
+  visit data stays local, while pinned map assets are fetched from jsDelivr.
+- Added Python and Node regression tests plus GitHub Actions CI.
+
+### Migration
+- Existing `cl_addon_<addonId>_<userId>` localStorage records are migrated into
+  `user.addons` automatically on first load and the legacy keys are removed.
+
+> Historical versions 1.3.5 through 1.8.0 were developed in Git history but
+> were not fully recorded in this changelog. This release resumes complete
+> changelog entries from 1.8.1 onward.
+
+---
+
 ## [1.0.0] — 2026-04-02
 
 ### Added
