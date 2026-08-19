@@ -48,8 +48,6 @@ def parse_port(argv: list[str]) -> int:
     return port
 
 
-PORT = DEFAULT_PORT
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,6 +58,21 @@ def scan_user_data() -> list[Path]:
         for f in DATA_USERS.iterdir()
         if f.is_file() and f.suffix.lower() in (".csv", ".json")
     )
+
+
+def data_file_manifest() -> list[dict[str, str]]:
+    """Return import candidates with a stamp that changes when a file changes."""
+    manifest: list[dict[str, str]] = []
+    for file in scan_user_data():
+        try:
+            stat = file.stat()
+        except OSError:
+            continue
+        manifest.append({
+            "name": file.name,
+            "stamp": f"{file.name}:{stat.st_size}:{stat.st_mtime_ns}",
+        })
+    return manifest
 
 
 def scan_addons() -> list[dict]:
@@ -139,8 +152,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(SRC_DIR), **kwargs)
 
     def end_headers(self) -> None:
-        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
-        self.send_header("Pragma", "no-cache")
+        request_path = urlsplit(self.path).path
+        if request_path == "/favicon.ico":
+            self.send_header("Cache-Control", "public, max-age=86400")
+        else:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Pragma", "no-cache")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
@@ -168,25 +185,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _allow_request(self, *, require_json: bool = False) -> bool:
         host = self.headers.get("Host", "").strip()
+        expected_port = self.server.server_address[1]
         try:
-            host_name = urlsplit(f"//{host}").hostname
+            parsed_host = urlsplit(f"//{host}")
+            host_name = parsed_host.hostname
+            host_port = parsed_host.port
         except ValueError:
             host_name = None
-        if host_name not in _ALLOWED_HOSTS:
-            self.send_error(403, "Localhost Host header required")
+            host_port = None
+        if host_name not in _ALLOWED_HOSTS or host_port != expected_port:
+            self.send_error(403, "Localhost Host header and listening port required")
             return False
 
         origin = self.headers.get("Origin")
         if origin:
             try:
                 parsed_origin = urlsplit(origin)
+                origin_port = parsed_origin.port
             except ValueError:
                 parsed_origin = None
+                origin_port = None
             if (
                 parsed_origin is None
                 or parsed_origin.scheme != "http"
-                or parsed_origin.hostname not in _ALLOWED_HOSTS
-                or parsed_origin.netloc.lower() != host.lower()
+                or parsed_origin.hostname != host_name
+                or origin_port != expected_port
             ):
                 self.send_error(403, "Cross-site request rejected")
                 return False
@@ -206,7 +229,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(_FAVICON)))
-            self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             self.wfile.write(_FAVICON)
             return
@@ -217,7 +239,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
 
         if request_path == "/api/data-files":
-            payload = json.dumps([f.name for f in scan_user_data()]).encode()
+            payload = json.dumps(data_file_manifest()).encode()
             self._json(200, payload)
             return
 

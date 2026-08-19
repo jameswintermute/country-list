@@ -2,7 +2,7 @@
 
 [![GPL-3.0 License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![Local First](https://img.shields.io/badge/local--first-green)](src/index.html)
-[![Version](https://img.shields.io/badge/version-1.8.2-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.3-brightgreen)](CHANGELOG.md)
 [![CI](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml/badge.svg)](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml)
 
 **Track every country and territory you have visited over your lifetime.**
@@ -57,7 +57,10 @@ country-list/
 │   └── DEVELOPMENT.md
 ├── src/
 │   └── index.html           # application UI and client logic
+├── .github/
+│   └── workflows/ci.yml      # Python/Node regression checks
 ├── tests/
+│   ├── check_inline_js.js
 │   ├── test_app_logic.js
 │   └── test_server.py
 ├── start.py                 # localhost launcher/API
@@ -91,7 +94,9 @@ state. Each user record contains both country visits and add-on visits:
 ```
 
 Older installations that stored add-on visits in `cl_addon_<addon>_<user>`
-localStorage keys are migrated automatically on first load.
+localStorage keys are migrated automatically on first load. Legacy
+`cl_csv_<user>` browser mirrors are also removed: the authoritative browser
+state is `cl_u`, while rolling CSV protection lives under `data/users/`.
 
 `data/users/` is intentionally outside the web server's static document root.
 The launcher exposes only the application under `src/` and explicit localhost
@@ -116,9 +121,12 @@ Current exports contain these columns:
 
 The additional metadata lets a CSV round-trip without relying solely on its
 filename. The stable User ID also prevents two people with the same name from
-being merged accidentally. Older five-column exports remain importable; if an
+being merged accidentally. A CSV is intentionally **one profile per file**; if
+profile metadata changes between rows, the import is rejected rather than
+silently mixing people. Older five-column exports remain importable; if an
 older CSV matches more than one existing profile, the import is stopped rather
-than guessing.
+than guessing. Add-on rows are accepted only when their region code exists in
+the installed add-on definition.
 
 Rolling files under `data/users/` include the stable profile ID in their
 filename, for example `James-Wintermute--<user-id>.csv`, so same-name profiles
@@ -132,12 +140,21 @@ IDs and add-on visits. Imports validate names, home-country ISO codes, place
 codes and visit years. Existing profiles are matched by stable ID, so two people
 with the same name remain independent.
 
+## Map coverage
+
+Kosovo is matched by its Natural Earth feature name because the pinned
+world-atlas geometry does not provide a numeric ISO identifier for it. The
+Canary Islands are tracked as a travel destination in lists and statistics,
+but the 110m atlas does not expose them as a polygon separate from Spain, so
+they cannot be coloured independently on the world map.
+
 ## Tests
 
-Run the standard-library server tests and JavaScript regression tests with:
+Run the standard-library server tests and JavaScript checks with:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/check_inline_js.js
 node tests/test_app_logic.js
 ```
 
