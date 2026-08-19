@@ -1,38 +1,32 @@
 # Country List
 
 [![GPL-3.0 License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
-[![Offline First](https://img.shields.io/badge/offline-first-green)](src/index.html)
-[![Version](https://img.shields.io/badge/version-1.0.0-brightgreen)](CHANGELOG.md)
+[![Local First](https://img.shields.io/badge/local--first-green)](src/index.html)
+[![Version](https://img.shields.io/badge/version-1.8.1-brightgreen)](CHANGELOG.md)
 
 **Track every country and territory you have visited over your lifetime.**
 
-A free, offline-first, single-file web app. Add family members and compare
-your journeys side by side. No account, no server, no data ever leaves your
-device.
+Country List is a local-first web app for recording travel history for one or
+more people. Your visit data is stored in your browser and, when launched with
+`start.py`, mirrored to per-user CSV files under `data/users/`. There is no
+account and no remote application backend.
 
----
+The map libraries and atlas files are currently loaded from **pinned jsDelivr
+versions**, so an internet connection is required for map assets. Your travel
+history itself is not sent to jsDelivr.
 
 ## Features
 
-- **Choropleth map** — Natural Earth map rendered with D3.js; zooms to the
-  active continent automatically
-- **Countries and territories** — ~250 entries including Antarctica, Aruba,
-  Falkland Islands, Hong Kong, Macau, Isle of Man, Guernsey, Jersey, Reunion,
-  Canary Islands, and more
-- **Optional year tracking** — mark a place visited with or without recording
-  the year(s); add multiple years per place
-- **Multi-person** — add a spouse, children, or anyone else; each person gets
-  their own tab and independent data
-- **Auto-save** — every change is immediately written to browser localStorage;
-  the latest CSV per person is kept as a rolling backup
-- **Export CSV** — download your list at any time as
-  `YYYY-MM-DD-country-list-FirstName-LastName.csv`
-- **Backup JSON** — export all users in one file for transfer between devices
-- **Import** — re-import a CSV or JSON backup; visits are merged, not
-  overwritten, so no data is lost
-- **No build step** — open `src/index.html` directly in any modern browser
-
----
+- **World map** — Natural Earth / world-atlas rendered with D3.js
+- **Countries and territories** — 235 tracked places in the current data set
+- **Optional year tracking** — one or many visit years per place
+- **Multi-person** — independent profiles plus family comparison views
+- **Sub-national add-ons** — US states, Canadian provinces and territories,
+  Australian states and territories, and UK nations
+- **Local persistence** — browser localStorage plus rolling CSV files
+- **Backup JSON** — exports all users, including add-on visit history
+- **CSV import/export** — merges visits rather than replacing existing history
+- **No build step** — plain HTML/JavaScript and Python's standard library
 
 ## Getting started
 
@@ -42,91 +36,111 @@ cd country-list
 python3 start.py
 ```
 
-This opens `http://localhost:8420` in your default browser. The launcher is required (rather than opening `src/index.html` directly) because the map data loads from a CDN — browsers block CDN requests from `file://` URLs.
+The launcher opens `http://localhost:8420`. It binds only to `127.0.0.1`, so the
+application is not exposed to other devices on your LAN. If port 8420 is busy,
+the launcher chooses the next available local port.
 
-> **No dependencies to install.** Python 3's built-in `http.server` is all that is needed.
+> **No Python packages are required.** `start.py` uses the standard library.
 
----
+Do not open `src/index.html` directly with `file://`; the app uses local API
+endpoints for add-on discovery and rolling disk backups.
 
 ## Project layout
 
-```
+```text
 country-list/
-├── src/
-│   └── index.html          <- entire application (single file, no build step)
+├── addons/                  # optional sub-national trackers
 ├── data/
-│   └── users/              <- place exported CSV / JSON backups here
-│                              (gitignored — your data stays private)
+│   └── users/               # rolling per-user CSV backups (gitignored)
 ├── docs/
-│   └── DEVELOPMENT.md      <- architecture notes and contributor guide
-├── start.py                <- local HTTP launcher: python3 start.py
+│   └── DEVELOPMENT.md
+├── src/
+│   └── index.html           # application UI and client logic
+├── tests/
+│   ├── test_app_logic.js
+│   └── test_server.py
+├── start.py                 # localhost launcher/API
 ├── CHANGELOG.md
 ├── LICENSE
 └── README.md
 ```
 
-### data/users/ — your personal data folder
+## Data and privacy
 
-Drop exported CSV or JSON files into `data/users/` as a local backup alongside
-the repo. This folder is listed in `.gitignore` so your travel history is never
-accidentally committed to a public repository.
-
-To restore: open the app, click **Import CSV** in the header, and select the
-file. The app merges the imported data with anything already stored in your
-browser, so importing is always safe.
-
----
-
-## Data formats
-
-### CSV (per-person export)
-
-| Column        | Example          | Notes                              |
-|---------------|------------------|------------------------------------|
-| Name          | United Kingdom   | Country or territory name          |
-| ISO2          | GB               | ISO 3166-1 alpha-2 code            |
-| Continent     | Europe           | One of the six continent tabs      |
-| Type          | country          | `country` or `territory`           |
-| Years Visited | 2018; 2022       | Semicolon-separated; may be blank  |
-
-Filename convention: `YYYY-MM-DD-country-list-FirstName-LastName.csv`
-
-### JSON (full session backup)
+The browser's `cl_u` localStorage record is the authoritative local application
+state. Each user record contains both country visits and add-on visits:
 
 ```json
 {
-  "version": "1.0.0",
-  "exported": "2026-04-02T10:00:00.000Z",
-  "users": [
-    {
-      "id": "1743591234567",
-      "first": "James",
-      "last": "Wintermute",
-      "country": "GB",
-      "visits": {
-        "GB": [],
-        "FR": [2019, 2023],
-        "JP": [2022]
-      }
+  "id": "1787137200000-123456",
+  "first": "James",
+  "last": "Wintermute",
+  "country": "GB",
+  "visits": {
+    "GB": [],
+    "FR": [2019, 2023]
+  },
+  "addons": {
+    "uk-nations": {
+      "ENG": [],
+      "SCO": [2022]
     }
-  ]
+  }
 }
 ```
 
-Filename convention: `YYYY-MM-DD-country-list-all-users.json`
+Older installations that stored add-on visits in `cl_addon_<addon>_<user>`
+localStorage keys are migrated automatically on first load.
 
----
+`data/users/` is intentionally outside the web server's static document root.
+The launcher exposes only the application under `src/` and explicit localhost
+API routes. Removing a profile also requests deletion of its rolling CSV file.
+
+### CSV format
+
+Current exports contain these columns:
+
+| Column | Purpose |
+|---|---|
+| Name | Country, territory or add-on region name |
+| ISO2 | Country ISO2 or add-on region code |
+| Continent | Continent or add-on display name |
+| Type | `country`, `territory`, or add-on subtype |
+| Years Visited | Semicolon-separated visit years |
+| Addon ID | Stable add-on identifier; blank for country rows |
+| User First | Profile first name |
+| User Last | Profile last name |
+| Home ISO2 | Profile home country |
+
+The additional metadata lets a CSV round-trip without relying solely on its
+filename. Older five-column exports remain importable.
+
+### JSON backup
+
+**Backup JSON** exports the complete `users` array, including add-on visits.
+Imports validate names, home-country ISO codes, place codes and visit years,
+and merge valid data into matching profiles.
+
+## Tests
+
+Run the standard-library server tests and JavaScript regression tests with:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/test_app_logic.js
+```
+
+GitHub Actions runs the same checks for pushes and pull requests.
 
 ## Third-party credits
 
-| Dependency    | Licence     | Use                           |
-|---------------|-------------|-------------------------------|
-| D3.js v7      | ISC         | Map projection and rendering  |
-| TopoJSON v3   | ISC         | Topology decoding             |
-| world-atlas@2 | ISC         | Natural Earth country shapes  |
-| Natural Earth | Public domain | Underlying geographic data  |
-
----
+| Dependency | Version | Licence | Use |
+|---|---:|---|---|
+| D3.js | 7.9.0 | ISC | Map projection and rendering |
+| TopoJSON Client | 3.1.0 | ISC | Topology decoding |
+| world-atlas | 2.0.2 | ISC | Natural Earth country shapes |
+| us-atlas | 3.0.1 | ISC | US state shapes |
+| Natural Earth | — | Public domain | Underlying geographic data |
 
 ## Licence
 
@@ -137,7 +151,7 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-See LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt
+See [LICENSE](LICENSE).
 
 ---
 

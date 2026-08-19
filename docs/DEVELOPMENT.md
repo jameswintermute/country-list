@@ -2,122 +2,156 @@
 
 ## Architecture
 
-Country List is intentionally a **single-file application** — the entire app
-lives in `src/index.html`. There is no build step, no bundler, no framework,
-and no npm dependencies to install.
+Country List deliberately has no framework, package manager, bundler or build
+step. The UI/client logic lives in `src/index.html`; `start.py` provides a very
+small localhost-only HTTP server and persistence API; optional sub-national
+trackers live under `addons/`.
 
-This mirrors the approach used in the companion project
-[vCard Studio](https://github.com/jameswintermute/vcard), which uses the same
-offline-first, single-HTML-file model.
+The application is **local-first**, rather than fully offline: D3, TopoJSON and
+atlas data are fetched from pinned jsDelivr versions at runtime. Travel data is
+not sent to those services.
 
-## Launcher: start.py
-
-The app must be served over HTTP rather than opened as a `file://` URL because
-browsers block `fetch()` calls to external CDNs (CDN requests for D3 and the
-world-atlas TopoJSON fail silently under `file://`).
-
-`start.py` uses Python's built-in `http.server` — no packages to install:
+## Launcher: `start.py`
 
 ```bash
 python3 start.py         # opens http://localhost:8420
 python3 start.py 9000    # custom port
 ```
 
-The launcher also:
+Security boundaries are intentional:
 
-- Scans `data/users/` for CSV/JSON files and prints any it finds to the terminal
-- Exposes a `/api/data-files` endpoint that the app polls on startup to show
-  the import banner
+- binds only to `127.0.0.1`
+- serves static files only from `src/`
+- does not expose `data/users/`, `.git/`, README files, or the repository root
+- validates add-on folder requests against discovered add-ons
+- restricts CSV filenames to a safe basename
+- caps JSON request bodies at 5 MiB
+- writes CSV files atomically with `os.replace`
+- sends basic browser hardening headers
 
-## External dependencies (CDN, loaded at runtime)
+API routes:
 
-| Library        | URL                                                              | Version |
-|----------------|------------------------------------------------------------------|---------|
-| D3.js          | https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js                | 7.x     |
-| TopoJSON       | https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js | 3.x |
-| world-atlas    | https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json  | 2.x     |
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/data-files` | GET | list local CSV/JSON backup filenames |
+| `/api/data-file/<filename>` | GET | read one validated local backup for the import banner |
+| `/api/addons` | GET | list discovered add-on metadata |
+| `/api/addon-data/<folder>` | GET | serve a validated add-on `data.js` |
+| `/api/save-user` | POST | atomically write a rolling user CSV |
+| `/api/delete-user` | DELETE | delete a rolling user CSV |
 
-All three are loaded from `cdn.jsdelivr.net`. A working internet connection is
-required on first use. After that the browser caches both scripts and the
-TopoJSON file.
+## Runtime dependencies
 
-## Data storage
+These are pinned rather than floating major-version URLs:
 
-| Store                      | What                                  | Persists across |
-|----------------------------|---------------------------------------|-----------------|
-| `localStorage["cl_u"]`     | Full users array (JSON)               | Browser sessions|
-| `localStorage["cl_csv_ID"]`| Rolling CSV backup per user           | Browser sessions|
+| Library | URL | Version |
+|---|---|---:|
+| D3.js | `https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js` | 7.9.0 |
+| TopoJSON Client | `https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js` | 3.1.0 |
+| world-atlas | `https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json` | 2.0.2 |
+| us-atlas | `https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-albers-10m.json` | 3.0.1 |
 
-There is no server-side storage. Data lives entirely in the user's browser.
+Vendoring these four files under `src/` would be the next step if fully offline
+operation becomes a requirement.
 
-## Source structure inside index.html
+## Data model
 
+`localStorage["cl_u"]` contains the authoritative users array. A user is
+self-contained:
+
+```js
+{
+  id: "...",
+  first: "James",
+  last: "Wintermute",
+  country: "GB",
+  visits: {
+    GB: [],
+    FR: [2019, 2023],
+  },
+  addons: {
+    "uk-nations": {
+      ENG: [],
+      SCO: [2022],
+    },
+  },
+}
 ```
-<!-- GNU licence header -->
-<html>
-  <head>
-    <style>          CSS variables, layout, component styles
-    </style>
-  </head>
-  <body>
-    <!-- HTML: header, setup screen, modals, app shell -->
 
-    <script src="d3" />
-    <script src="topojson" />
-    <script>
-      // ISO numeric → ISO2 map       (N2A)
-      // Places array                 (P)
-      // Continent bounding boxes     (CB)
-      // ISO2 → continent lookup      (I2C)
-      // Version constant             (VERSION)
-      // State variables
-      // Persist: save / load / exportJSON / importJSON / importCSV
-      // User management
-      // Continent tabs
-      // Sidebar list
-      // Select + detail panel
-      // Stats
-      // Auto-save / exportCSV
-      // About modal
-      // Map: initMap / drawMap / refreshColors / zoomTo
-      // Typeahead
-    </script>
-  </body>
-</html>
+The old `cl_addon_<addonId>_<userId>` storage format is migrated into
+`user.addons` on load and the legacy keys are removed. Keeping add-on data in
+the user object is important: JSON backup, CSV generation, profile deletion and
+multi-user isolation all operate on the same state.
+
+`localStorage["cl_csv_<userId>"]` remains a convenience rolling CSV copy. When
+running through `start.py`, the same CSV is mirrored into `data/users/`.
+
+## Import validation
+
+JSON imports are normalised before any merge occurs. CSV and JSON imports reject
+unknown home-country codes, discard unknown country/territory visit keys, clamp
+visit years to `1900..current year`, deduplicate years, and restrict add-on IDs
+and region codes to conservative identifier formats.
+
+CSV output doubles embedded quotes and prefixes cells beginning with `=`, `+`,
+`-` or `@` to prevent spreadsheet formula execution.
+
+## Map identifiers
+
+`N2A` is the ISO-3166 numeric-to-alpha-2 mapping used to match world-atlas
+features to the `P` place list. It is intentionally complete rather than a
+hand-maintained subset. Some very small territories may still be absent from
+the 110m Natural Earth geometry and therefore appear only in the sidebar.
+
+## Add-ons
+
+Each add-on folder contains:
+
+```text
+addons/<id>/
+├── addon.json
+└── data.js
 ```
+
+`addon.json` is metadata. `data.js` is executable JavaScript and is therefore
+trusted local code; only install add-ons you trust. The add-on `id` should match
+its folder name.
+
+All local add-on data definitions are loaded during application initialisation,
+even when the UI toggle is disabled. This is intentional: backups must remain
+complete regardless of which add-ons are currently visible.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/test_app_logic.js
+```
+
+The server tests start an ephemeral localhost server and verify static-root
+isolation, backup save/delete behaviour, path validation and add-on routing.
+The JavaScript tests execute the persistence/import core in a Node VM and cover
+multi-user add-on isolation, legacy migration, CSV import, year validation,
+CSV formula protection and important numeric ISO mappings.
 
 ## Versioning
 
-Version is set in two places — both must be updated on release:
+For a release, update:
 
-1. `const VERSION="x.y.z"` in the `<script>` block
-2. The `<title>` tag: `Country List vx.y.z`
-3. The HTML comment block at the top of the file
-4. `CHANGELOG.md` — add a new `## [x.y.z]` section
-5. Git tag: `git tag -a vx.y.z -m "Release x.y.z"`
+1. the HTML header comment (`Country List vx.y.z`)
+2. `<title>Country List vx.y.z</title>`
+3. `const VERSION="x.y.z"`
+4. the README version badge/examples when applicable
+5. `CHANGELOG.md`
+6. the Git tag
 
 ## Adding a country or territory
 
-Each entry in the `P` array follows this format:
+Each `P` entry is:
 
 ```js
-["Display Name", "ISO2", "Continent", "flag emoji", "country|territory"],
+["Display Name", "ISO2", "Continent", "flag emoji", "country|territory"]
 ```
 
-The ISO2 code must match one of the numeric IDs in the `N2A` map for the
-country to be coloured on the map. If it does not appear in Natural Earth's
-110m dataset (e.g. very small territories), it will still appear in the
-sidebar list but will not be highlighted on the map.
-
-## Continent bounding boxes
-
-The `CB` object controls the viewport each continent tab zooms to:
-
-```js
-const CB = {
-  Europe: [-25, 34, 45, 72],   // [lon_west, lat_south, lon_east, lat_north]
-  ...
-};
-```
-
-Adjust these if the zoom on a particular continent feels off.
+Use a real ISO2 code where one exists. A place can still appear in the sidebar
+without a corresponding 110m map polygon.
