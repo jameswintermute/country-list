@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.4] — 2026-08-19
+
+### Fixed
+- **Summary territory counting** — continent progress now counts all tracked
+  places (countries + territories) rather than sovereign countries only. This
+  restores Antarctica to Summary/Family Overview and ensures territory visits
+  such as Gibraltar, Greenland and Hong Kong contribute to their continent.
+- **Family overview totals** — the family table now ranks and totals people by
+  all visited places and labels the aggregate column **Places** instead of the
+  ambiguous **Total**.
+
+### Changed
+- Summary continent headings explicitly state that percentages cover countries
+  and territories. Separate country/territory counters elsewhere are unchanged.
+- Added regression coverage for territory-only Antarctica in Summary.
+
+---
+
 ## [1.8.3] — 2026-08-19
 
 ### Fixed
