@@ -38,7 +38,7 @@ class ServerTests(unittest.TestCase):
     def test_root_serves_app_but_repo_files_are_not_exposed(self):
         status, headers, body = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn(b"Country List v1.8.4", body)
+        self.assertIn(b"Country List v1.8.5", body)
         self.assertEqual(headers.get("X-Frame-Options"), "DENY")
         self.assertEqual(headers.get("Cross-Origin-Opener-Policy"), "same-origin")
         self.assertEqual(headers.get("Cross-Origin-Resource-Policy"), "same-origin")
