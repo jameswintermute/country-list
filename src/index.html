@@ -1,5 +1,5 @@
 <!--
-  Country List v1.8.1
+  Country List v1.8.2
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -24,7 +24,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.8.1</title>
+<title>Country List v1.8.2</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -468,7 +468,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.8.1";
+const VERSION="1.8.2";
 const MIN_YEAR=1900;
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -478,7 +478,11 @@ let cmpPair=[null,null]; // [id1,id2] for compare-two picker; null=use active+fi
 let gFeats=[],proj,path,svgSel,gSel,zoom,mapInited=false;
 
 // ── DATA SAFETY / PERSISTENCE ────────────────────────────────────────────────
+function isValidUserId(value){
+  return /^[A-Za-z0-9_-]{1,80}$/.test(String(value??""));
+}
 function newUserId(){
+  if(globalThis.crypto&&typeof globalThis.crypto.randomUUID==="function")return globalThis.crypto.randomUUID();
   return `${Date.now()}-${Math.floor(Math.random()*1_000_000)}`;
 }
 function htmlEscape(value){
@@ -491,7 +495,7 @@ function normaliseName(value,{required=false,fallback=""}={}){
 }
 function normaliseId(value){
   const id=String(value??"");
-  return /^[A-Za-z0-9_-]{1,80}$/.test(id)?id:newUserId();
+  return isValidUserId(id)?id:newUserId();
 }
 function knownCountry(iso){return P.some(p=>p[1]===iso&&p[4]==="country");}
 function knownPlace(iso){return P.some(p=>p[1]===iso);}
@@ -538,6 +542,12 @@ function normaliseUser(raw,{preserveId=true}={}){
     visits:normaliseVisits(raw.visits),
     addons:normaliseAddons(raw.addons)
   };
+}
+function sameUserIdentity(a,b){
+  return !!a&&!!b&&
+    a.first.toLowerCase()===b.first.toLowerCase()&&
+    a.last.toLowerCase()===b.last.toLowerCase()&&
+    a.country===b.country;
 }
 function mergeVisitMaps(target,incoming){
   Object.entries(incoming||{}).forEach(([code,years])=>{
@@ -616,15 +626,28 @@ function importJSON_data(text){
   try{
     const payload=JSON.parse(text);
     if(!payload||!Array.isArray(payload.users)||payload.users.length>100)throw new Error("Invalid backup format");
-    const incomingUsers=payload.users.map(raw=>normaliseUser(raw,{preserveId:false}));
+    const incomingUsers=payload.users.map(raw=>({
+      user:normaliseUser(raw,{preserveId:true}),
+      hadStableId:isValidUserId(raw&&raw.id)
+    }));
     let added=0,updated=0;
-    incomingUsers.forEach(incoming=>{
-      const ex=users.find(u=>u.first.toLowerCase()===incoming.first.toLowerCase()&&u.last.toLowerCase()===incoming.last.toLowerCase());
+    incomingUsers.forEach(({user:incoming,hadStableId})=>{
+      let ex=hadStableId?users.find(u=>u.id===incoming.id):null;
+      if(ex&&!sameUserIdentity(ex,incoming))throw new Error(`Profile ID conflict for ${incoming.first} ${incoming.last}`);
+      if(!ex&&!hadStableId){
+        const matches=users.filter(u=>
+          u.first.toLowerCase()===incoming.first.toLowerCase()&&
+          u.last.toLowerCase()===incoming.last.toLowerCase()&&
+          u.country===incoming.country
+        );
+        if(matches.length===1)ex=matches[0];
+      }
       if(ex){
         mergeVisitMaps(ex.visits,incoming.visits);
         mergeAddonMaps(ex.addons,incoming.addons);
         updated++;
       }else{
+        while(users.some(u=>u.id===incoming.id))incoming.id=newUserId();
         users.push(incoming);added++;
       }
     });
@@ -651,11 +674,12 @@ function importCSV_data(text,filename){
   const hdr=parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase());
   const idx=name=>hdr.indexOf(name);
   const isoIdx=idx("iso2"),yrsIdx=idx("years visited"),contIdx=idx("continent"),typeIdx=idx("type"),addonIdIdx=idx("addon id");
-  const firstIdx=idx("user first"),lastIdx=idx("user last"),homeIdx=idx("home iso2");
+  const userIdIdx=idx("user id"),firstIdx=idx("user first"),lastIdx=idx("user last"),homeIdx=idx("home iso2");
   if(isoIdx<0){alert("CSV missing ISO2 column");return;}
 
-  let firstName="",lastName="",homeCountry="";
+  let importedUserId="",firstName="",lastName="",homeCountry="";
   const firstData=lines.length>1?parseCSVLine(lines[1]):[];
+  if(userIdIdx>=0&&isValidUserId(firstData[userIdIdx]))importedUserId=String(firstData[userIdIdx]);
   if(firstIdx>=0)firstName=normaliseName(firstData[firstIdx]);
   if(lastIdx>=0)lastName=normaliseName(firstData[lastIdx]);
   if(homeIdx>=0)homeCountry=String(firstData[homeIdx]||"").toUpperCase().trim();
@@ -687,14 +711,34 @@ function importCSV_data(text,filename){
     }else ignored++;
   });
 
-  let user=users.find(u=>u.first.toLowerCase()===firstName.toLowerCase()&&u.last.toLowerCase()===lastName.toLowerCase());
+  let user=importedUserId?users.find(u=>u.id===importedUserId):null;
+  if(user&&firstName){
+    const incomingIdentity={first:firstName,last:lastName,country:knownCountry(homeCountry)?homeCountry:user.country};
+    if(!sameUserIdentity(user,incomingIdentity)){
+      alert("Import cancelled: this User ID belongs to a different profile.");
+      return;
+    }
+  }
+  if(!user&&!importedUserId&&firstName){
+    let matches=users.filter(u=>
+      u.first.toLowerCase()===firstName.toLowerCase()&&
+      u.last.toLowerCase()===lastName.toLowerCase()
+    );
+    if(knownCountry(homeCountry))matches=matches.filter(u=>u.country===homeCountry);
+    if(matches.length===1)user=matches[0];
+    else if(matches.length>1){
+      alert("Import cancelled: multiple profiles match this older CSV. Export a new CSV containing User ID and try again.");
+      return;
+    }
+  }
   if(!user){
     let iso=knownCountry(homeCountry)?homeCountry:"";
     if(!iso){
       iso=String(prompt(`User "${firstName||"Imported"} ${lastName}" not found.\nEnter their home country ISO2 (e.g. GB, US, FR):`,"GB")||"").toUpperCase().trim();
     }
     if(!knownCountry(iso)){alert("Import cancelled: invalid home country ISO2");return;}
-    user=normaliseUser({id:newUserId(),first:firstName||"Imported",last:lastName||"User",country:iso,visits:{},addons:{}});
+    user=normaliseUser({id:importedUserId||newUserId(),first:firstName||"Imported",last:lastName||"User",country:iso,visits:{},addons:{}});
+    if(users.some(u=>u.id===user.id))user.id=newUserId();
     users.push(user);
   }
   mergeVisitMaps(user.visits,visits);
@@ -710,8 +754,8 @@ function csvCell(value){
   return `"${text.replace(/"/g,'""')}"`;
 }
 function csvContent(u){
-  const rows=[["Name","ISO2","Continent","Type","Years Visited","Addon ID","User First","User Last","Home ISO2"]];
-  const userCols=[u.first,u.last,u.country];
+  const rows=[["Name","ISO2","Continent","Type","Years Visited","Addon ID","User ID","User First","User Last","Home ISO2"]];
+  const userCols=[u.id,u.first,u.last,u.country];
   P.forEach(p=>{
     const v=u.visits[p[1]];
     if(v!==undefined)rows.push([p[0],p[1],p[2],p[4],normaliseYears(v).join("; "),"",...userCols]);
@@ -737,23 +781,62 @@ function safeFilenamePart(value){
     .replace(/[^A-Za-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60);
   return cleaned||"User";
 }
-function userFilename(u){
+function legacyUserFilename(u){
   const first=safeFilenamePart(u.first),last=safeFilenamePart(u.last);
   return `${first}-${last}.csv`;
 }
-function writeUserFile(u){
-  if(!u)return Promise.resolve();
-  return fetch("/api/save-user",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({filename:userFilename(u),csv:csvContent(u)})
-  }).catch(()=>{}); // opening index.html directly remains unsupported but harmless
+function safeUserIdPart(value){
+  const cleaned=String(value??"").replace(/[^A-Za-z0-9_-]+/g,"").slice(0,80);
+  return cleaned||"id";
 }
-function deleteUserFile(u){
-  if(!u)return Promise.resolve();
-  return fetch("/api/delete-user",{
-    method:"DELETE",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({filename:userFilename(u)})
-  }).catch(()=>{});
+function userFilename(u){
+  const first=safeFilenamePart(u.first),last=safeFilenamePart(u.last);
+  return `${first}-${last}--${safeUserIdPart(u.id)}.csv`;
+}
+function rollingBackupFilenames(){
+  const names=new Set();
+  users.forEach(u=>{names.add(userFilename(u));names.add(legacyUserFilename(u));});
+  return names;
+}
+async function deleteBackupFilename(filename){
+  try{
+    const response=await fetch("/api/delete-user",{
+      method:"DELETE",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({filename})
+    });
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    return true;
+  }catch(err){
+    console.warn("Could not delete rolling CSV backup:",filename,err);
+    return false;
+  }
+}
+async function writeUserFile(u){
+  if(!u)return false;
+  const filename=userFilename(u);
+  try{
+    const response=await fetch("/api/save-user",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({filename,csv:csvContent(u)})
+    });
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const legacy=legacyUserFilename(u);
+    const sameLegacy=users.filter(x=>legacyUserFilename(x)===legacy);
+    if(legacy!==filename&&sameLegacy.length===1)await deleteBackupFilename(legacy);
+    return true;
+  }catch(err){
+    console.warn("Could not write rolling CSV backup:",filename,err);
+    return false;
+  }
+}
+async function deleteUserFile(u){
+  if(!u)return true;
+  const filenames=[userFilename(u)];
+  const legacy=legacyUserFilename(u);
+  const anotherUsesLegacy=users.some(x=>x.id!==u.id&&legacyUserFilename(x)===legacy);
+  if(!anotherUsesLegacy&&legacy!==filenames[0])filenames.push(legacy);
+  const results=await Promise.all(filenames.map(deleteBackupFilename));
+  return results.every(Boolean);
 }
 function writeAllUserFiles(){users.forEach(u=>{autoSave(u);writeUserFile(u);});}
 function exportCSV(){
@@ -874,7 +957,9 @@ function confirmDelUser(){
   const isLast=users.filter(x=>x.id!==_delUserId).length===0;
 
   // Remove user data from browser and the rolling disk backup.
-  deleteUserFile(u);
+  deleteUserFile(u).then(ok=>{
+    if(!ok)alert("Profile removed from the browser, but one or more rolling CSV backups could not be deleted. Check data/users/ manually.");
+  });
   users=users.filter(x=>x.id!==_delUserId);
   localStorage.removeItem("cl_csv_"+_delUserId);
   const legacySuffix=`_${_delUserId}`;
@@ -1445,7 +1530,8 @@ function checkDataFiles(){
   fetch("/api/data-files").then(r=>r.json()).then(files=>{
     if(!files||!files.length)return;
     const seen=JSON.parse(localStorage.getItem("cl_imported_files")||"[]");
-    const fresh=files.filter(f=>!seen.includes(f));
+    const ownRolling=rollingBackupFilenames();
+    const fresh=files.filter(f=>!seen.includes(f)&&!ownRolling.has(f));
     if(!fresh.length)return;
     _pendingFiles=fresh;
     document.getElementById("ib-files").textContent=

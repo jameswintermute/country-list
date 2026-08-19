@@ -6,6 +6,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.2] — 2026-08-19
+
+### Fixed
+- **Same-name rolling backup collisions** — rolling `data/users/` CSV filenames
+  now include each profile's stable ID, preventing two people with identical
+  names from overwriting or deleting one another's backup.
+- **Same-name JSON import merging** — JSON restore now preserves stable profile
+  IDs and merges by ID rather than name. Two profiles with the same name remain
+  independent across backup/restore.
+- **Ambiguous legacy CSV imports** — current CSV exports include `User ID`. Older
+  CSVs still import, but an ambiguous same-name match is stopped instead of
+  silently selecting the wrong profile.
+- **Atomic-save concurrency** — server-side CSV writes now use a unique temporary
+  file per request before `os.replace`, avoiding same-file temp races.
+- **Self-import banner noise** — the startup import banner now ignores the current
+  profiles' own rolling CSV mirrors (including unambiguous legacy filenames).
+
+### Security
+- Reject non-local `Host` headers to reduce DNS-rebinding exposure.
+- Reject cross-site `Origin` headers and require `application/json` on mutating
+  API calls, preventing simple cross-origin POSTs from modifying local backups.
+- Added `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`,
+  `Permissions-Policy`, and `X-Robots-Tag` response headers.
+- Add-on discovery now ignores metadata whose ID does not match its folder or
+  whose display name is invalid.
+
+### Maintenance
+- Added the GitHub Actions CI workflow that the v1.8.1 documentation intended to
+  provide: Python tests, JavaScript tests and syntax checks on pushes/PRs.
+- Ignore Python bytecode and `__pycache__` test artefacts.
+- Expanded regression coverage from 6 to 8 server tests and added stable-profile
+  identity/filename tests to the JavaScript suite.
+
+---
+
 ## [1.8.1] — 2026-08-19
 
 ### Fixed
@@ -43,7 +78,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   world-atlas 2.0.2 and us-atlas 3.0.1.
 - Documentation now describes the application accurately as **local-first**:
   visit data stays local, while pinned map assets are fetched from jsDelivr.
-- Added Python and Node regression tests plus GitHub Actions CI.
+- Added Python and Node regression tests.
 
 ### Migration
 - Existing `cl_addon_<addonId>_<userId>` localStorage records are migrated into

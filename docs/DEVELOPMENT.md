@@ -27,7 +27,9 @@ Security boundaries are intentional:
 - restricts CSV filenames to a safe basename
 - caps JSON request bodies at 5 MiB
 - writes CSV files atomically with `os.replace`
-- sends basic browser hardening headers
+- sends browser hardening headers
+- rejects non-local `Host` headers and cross-site `Origin` headers
+- requires `application/json` for write/delete API requests
 
 API routes:
 
@@ -84,14 +86,23 @@ the user object is important: JSON backup, CSV generation, profile deletion and
 multi-user isolation all operate on the same state.
 
 `localStorage["cl_csv_<userId>"]` remains a convenience rolling CSV copy. When
-running through `start.py`, the same CSV is mirrored into `data/users/`.
+running through `start.py`, the same CSV is mirrored into `data/users/`. Disk
+filenames include the stable user ID (`First-Last--<user-id>.csv`) so profiles
+with identical names cannot overwrite one another. Name-only v1.8.1 rolling
+files are removed after a successful ID-based save when that migration is
+unambiguous.
 
 ## Import validation
 
-JSON imports are normalised before any merge occurs. CSV and JSON imports reject
-unknown home-country codes, discard unknown country/territory visit keys, clamp
-visit years to `1900..current year`, deduplicate years, and restrict add-on IDs
-and region codes to conservative identifier formats.
+JSON imports are normalised before any merge occurs. Stable profile IDs are
+preserved and used as the primary merge key, which keeps same-name profiles
+separate. Current CSV exports also carry User ID; legacy CSVs fall back to an
+unambiguous name/home-country match and are rejected if multiple profiles match.
+
+CSV and JSON imports reject unknown home-country codes, discard unknown
+country/territory visit keys, clamp visit years to `1900..current year`,
+deduplicate years, and restrict add-on IDs and region codes to conservative
+identifier formats.
 
 CSV output doubles embedded quotes and prefixes cells beginning with `=`, `+`,
 `-` or `@` to prevent spreadsheet formula execution.
@@ -129,10 +140,15 @@ node tests/test_app_logic.js
 ```
 
 The server tests start an ephemeral localhost server and verify static-root
-isolation, backup save/delete behaviour, path validation and add-on routing.
+isolation, backup save/delete behaviour, path validation, add-on routing,
+security headers, JSON content-type enforcement and cross-site request guards.
 The JavaScript tests execute the persistence/import core in a Node VM and cover
 multi-user add-on isolation, legacy migration, CSV import, year validation,
-CSV formula protection and important numeric ISO mappings.
+CSV formula protection, stable profile identity, collision-proof rolling
+filenames and important numeric ISO mappings.
+
+`.github/workflows/ci.yml` runs these tests and syntax checks on pushes to
+`main`, pull requests and manual dispatches.
 
 ## Versioning
 
