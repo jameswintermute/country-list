@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.8.5] — 2026-08-19
+
+### Fixed
+- **Years Active hover alignment** — each year column now sizes itself to the
+  number of visible people, preventing multi-person bar groups from overlapping
+  neighbouring years and showing the wrong year's browser tooltip.
+
+### Changed
+- **Years Active readability** — increased chart height and bar range, added
+  clear spacing between years, changed year labels to horizontal text, added a
+  subtle whole-year hover highlight and made tooltips explicitly include year,
+  person and number of places.
+- Timeline width remains contained in its own horizontal scroller on narrower
+  windows instead of compressing or overlapping the data.
+
+---
+
 ## [1.8.4] — 2026-08-19
 
 ### Fixed

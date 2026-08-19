@@ -1,5 +1,5 @@
 <!--
-  Country List v1.8.4
+  Country List v1.8.5
   Copyright (C) 2026 James Wintermute <jameswintermute@protonmail.ch>
   https://github.com/jameswintermute/country-list
 
@@ -24,7 +24,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Country List v1.8.4</title>
+<title>Country List v1.8.5</title>
 <style>
 :root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
@@ -173,12 +173,13 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 .cb-pct{font-size:11px;color:var(--text3);width:36px;text-align:right;flex-shrink:0;}
 .cb-cnt{font-size:11px;color:var(--green);width:42px;text-align:right;flex-shrink:0;}
 /* timeline */
-.timeline-wrap{overflow-x:auto;padding-bottom:4px;}
-.timeline{display:flex;gap:3px;min-width:max-content;align-items:flex-end;height:80px;}
-.tl-col{display:flex;flex-direction:column;align-items:center;gap:2px;width:28px;}
-.tl-bar{background:var(--green-dim);border-radius:3px 3px 0 0;width:20px;min-height:4px;transition:height .3s;}
-.tl-bar:hover{background:var(--green);}
-.tl-yr{font-size:9px;color:var(--text3);white-space:nowrap;transform:rotate(-40deg);transform-origin:top right;margin-top:3px;width:28px;text-align:right;}
+.timeline-wrap{overflow-x:auto;overflow-y:hidden;padding:8px 4px 6px;scrollbar-gutter:stable;}
+.timeline{display:flex;gap:8px;min-width:max-content;align-items:flex-end;height:150px;padding:4px 2px 0;}
+.tl-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:7px;height:100%;padding:4px 3px 2px;border-radius:5px;transition:background .12s;}
+.tl-col:hover{background:rgba(110,118,129,.08);}
+.tl-bar{background:var(--green-dim);border-radius:3px 3px 0 0;min-height:4px;transition:height .3s,filter .12s;}
+.tl-bar:hover{filter:brightness(1.18);}
+.tl-yr{font-size:10px;color:var(--text3);white-space:nowrap;line-height:1;text-align:center;}
 .tl-n{font-size:9px;color:var(--text3);}
 
 /* MODALS */
@@ -209,7 +210,7 @@ input[type=text]:focus,input[type=number]:focus,.tw input:focus{border-color:var
 .shared-item .fl{font-size:14px;}
 .tl-bar2{background:#58a6ff;border-radius:3px 3px 0 0;width:20px;min-height:4px;transition:height .3s;}
 .tl-col2{display:flex;flex-direction:column;align-items:center;}
-.tl-pair{display:flex;gap:2px;align-items:flex-end;}
+.tl-pair{display:flex;gap:2px;align-items:flex-end;justify-content:center;height:112px;}
 
 /* MAP TOOLTIP */
 #map-tip{transition:opacity .1s;}
@@ -469,7 +470,7 @@ const CB={
 const I2C={};P.forEach(p=>{I2C[p[1]]=p[2];});
 
 // ── VERSION ───────────────────────────────────────────────────────────────────
-const VERSION="1.8.4";
+const VERSION="1.8.5";
 const MIN_YEAR=1900;
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -1328,19 +1329,26 @@ function renderSummary(){
     });
     const allKeys=[...new Set(maps.flatMap(m=>Object.keys(m)))].map(Number).sort((a,b)=>a-b);
     const maxV=allKeys.length?Math.max(...maps.flatMap(m=>allKeys.map(y=>m[y]||0)),1):1;
-    const BAR_H=55;
+    const BAR_H=105;
+    const BAR_GAP=2;
+    // A year column must be at least as wide as all of its person bars. The old
+    // fixed 28px column caused 2/3-person bar groups to overlap neighbouring
+    // years, so the visual 2008 bar could actually be the 2009 DOM element.
+    const BAR_W=userList.length<=3?16:userList.length<=5?12:9;
+    const COL_W=Math.max(36,userList.length*BAR_W+Math.max(0,userList.length-1)*BAR_GAP+8);
     if(!allKeys.length)return`<div style="color:var(--text3);font-size:12px;padding:8px 0">No years recorded yet.</div>`;
     return`<div class="timeline-wrap"><div class="timeline">${
       allKeys.map(y=>{
         const bars=userList.map((usr,i)=>{
           const n=maps[i][y]||0;
-          const h=n?Math.max(4,Math.round(n/maxV*BAR_H)):0;
+          const h=n?Math.max(5,Math.round(n/maxV*BAR_H)):0;
           const col=colourFor(usr.id);
-          return n?`<div style="width:16px;min-height:${h}px;background:${col};border-radius:3px 3px 0 0" title="${htmlEscape(usr.first)}: ${n} in ${y}"></div>`
-                  :`<div style="width:16px"></div>`;
+          const tip=`${y} — ${usr.first}: ${n} place${n===1?"":"s"}`;
+          return n?`<div class="tl-bar" style="width:${BAR_W}px;height:${h}px;background:${col}" title="${htmlEscape(tip)}"></div>`
+                  :`<div style="width:${BAR_W}px"></div>`;
         }).join("");
-        return`<div class="tl-col">
-          <div class="tl-pair" style="gap:2px">${bars}</div>
+        return`<div class="tl-col" style="width:${COL_W}px;min-width:${COL_W}px" title="${y}">
+          <div class="tl-pair">${bars}</div>
           <div class="tl-yr">${y}</div>
         </div>`;
       }).join("")

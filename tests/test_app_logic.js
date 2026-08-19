@@ -48,7 +48,7 @@ for (const [numeric, iso] of [[48,'BH'],[112,'BY'],[84,'BZ'],[72,'BW'],[96,'BN']
 assert.strictEqual(run(`featureISO({id:'826',properties:{name:'United Kingdom'}})`), 'GB');
 assert.strictEqual(run(`featureISO({properties:{name:'Kosovo'}})`), 'XK');
 assert.strictEqual(run(`featureISO({properties:{__iso:'UA'}})`), 'UA');
-assert.strictEqual(run(`VERSION`), '1.8.4');
+assert.strictEqual(run(`VERSION`), '1.8.5');
 
 // Year handling is consistent and rejects out-of-range values.
 const currentYear = new Date().getFullYear();
@@ -208,5 +208,14 @@ assert(summarySource.includes('P.some(p=>p[2]===c)'), 'family overview must incl
 assert(!summarySource.includes('P.some(p=>p[2]===c&&p[4]===\"country\")'), 'family overview must not filter territory-only continents');
 assert(summarySource.includes('<th>Places</th>'), 'family overview total must be labelled Places');
 assert(summarySource.includes('${s.nc+s.nt}'), 'family overview total must include territories');
+
+// Multi-person timeline columns must be wider than their complete bar group.
+// The old fixed 28px .tl-col let three 16px bars overlap adjacent years, so
+// hovering a visually aligned year could target the next year's element.
+assert(summarySource.includes('const COL_W=Math.max(36,userList.length*BAR_W'), 'timeline width must scale with person count');
+assert(summarySource.includes('style="width:${COL_W}px;min-width:${COL_W}px"'), 'each year must apply the calculated width');
+assert(summarySource.includes('const BAR_H=105;'), 'timeline should use the expanded readable height');
+assert(!html.includes('.tl-col{display:flex;flex-direction:column;align-items:center;gap:2px;width:28px;}'), 'timeline must not restore the overlapping fixed-width columns');
+assert(html.includes('.tl-yr{font-size:10px'), 'timeline year labels should remain readable and horizontal');
 
 console.log('app logic tests: ok');
