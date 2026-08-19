@@ -19,6 +19,7 @@ class Storage {
   clear(){ this.map.clear(); }
 }
 
+const alerts = [];
 const context = {
   console,
   localStorage: new Storage(),
@@ -27,7 +28,7 @@ const context = {
   document: {createElement:()=>({click(){}}), getElementById:()=>null},
   URL: {createObjectURL:()=> 'blob:test', revokeObjectURL:()=>{}},
   Blob: function(){},
-  alert: ()=>{},
+  alert: (message)=>alerts.push(String(message)),
   prompt: ()=> 'GB',
   showApp: ()=>{},
   fetch: ()=> Promise.resolve({ok:true}),
@@ -93,5 +94,50 @@ assert.deepStrictEqual(Array.from(run(`users[0].addons['us-states'].CA`)), [2019
 
 // New JSON/user validation does not accept arbitrary home ISO codes.
 assert.throws(() => run(`normaliseUser({id:'x',first:'Bad',last:'ISO',country:'ZZ',visits:{},addons:{}})`));
+
+
+// Rolling CSV filenames include stable user IDs so same-name profiles cannot collide.
+run(`users=[
+ {id:'person-a',first:'Sam',last:'Smith',country:'GB',visits:{GB:[]},addons:{}},
+ {id:'person-b',first:'Sam',last:'Smith',country:'GB',visits:{},addons:{}}
+]; activeUser='person-a';`);
+assert.strictEqual(run(`userFilename(users[0])`), 'Sam-Smith--person-a.csv');
+assert.strictEqual(run(`userFilename(users[1])`), 'Sam-Smith--person-b.csv');
+assert.notStrictEqual(run(`userFilename(users[0])`), run(`userFilename(users[1])`));
+
+const rollingNames = run(`rollingBackupFilenames()`);
+assert(rollingNames.has('Sam-Smith--person-a.csv'));
+assert(rollingNames.has('Sam-Smith--person-b.csv'));
+assert(rollingNames.has('Sam-Smith.csv')); // legacy mirror is also recognised as self-generated
+
+// Current CSV exports carry User ID so profile identity survives a round trip.
+const identityCsv = run(`csvContent(users[0])`);
+assert(identityCsv.includes('"User ID"'), identityCsv);
+assert(identityCsv.includes('"person-a"'), identityCsv);
+
+// JSON restore preserves stable IDs: two people with identical names remain distinct.
+run(`users=[]; activeUser=null;`);
+context.sameNameBackup = JSON.stringify({version:'1.8.2',users:[
+  {id:'sam-one',first:'Sam',last:'Smith',country:'GB',visits:{GB:[2020]},addons:{}},
+  {id:'sam-two',first:'Sam',last:'Smith',country:'GB',visits:{FR:[2021]},addons:{}}
+]});
+run(`importJSON_data(sameNameBackup)`);
+assert.strictEqual(run(`users.length`), 2);
+assert.deepStrictEqual(Array.from(run(`users.map(u=>u.id).sort()`)), ['sam-one','sam-two']);
+
+// Re-importing the same backup merges by stable ID instead of duplicating profiles.
+run(`importJSON_data(sameNameBackup)`);
+assert.strictEqual(run(`users.length`), 2);
+assert.deepStrictEqual(Array.from(run(`users.find(u=>u.id==='sam-one').visits.GB`)), [2020]);
+
+
+// A forged/corrupt backup cannot reuse an existing stable ID for another person.
+const beforeConflict = run(`JSON.stringify(users)`);
+context.conflictBackup = JSON.stringify({version:'1.8.2',users:[
+  {id:'sam-one',first:'Different',last:'Person',country:'GB',visits:{US:[2022]},addons:{}}
+]});
+run(`importJSON_data(conflictBackup)`);
+assert.strictEqual(run(`JSON.stringify(users)`), beforeConflict);
+assert(alerts.some(m=>m.includes('Profile ID conflict')));
 
 console.log('app logic tests: ok');

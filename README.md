@@ -2,7 +2,8 @@
 
 [![GPL-3.0 License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![Local First](https://img.shields.io/badge/local--first-green)](src/index.html)
-[![Version](https://img.shields.io/badge/version-1.8.1-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.2-brightgreen)](CHANGELOG.md)
+[![CI](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml/badge.svg)](https://github.com/jameswintermute/country-list/actions/workflows/ci.yml)
 
 **Track every country and territory you have visited over your lifetime.**
 
@@ -108,18 +109,28 @@ Current exports contain these columns:
 | Type | `country`, `territory`, or add-on subtype |
 | Years Visited | Semicolon-separated visit years |
 | Addon ID | Stable add-on identifier; blank for country rows |
+| User ID | Stable profile identifier used for safe round-trips |
 | User First | Profile first name |
 | User Last | Profile last name |
 | Home ISO2 | Profile home country |
 
 The additional metadata lets a CSV round-trip without relying solely on its
-filename. Older five-column exports remain importable.
+filename. The stable User ID also prevents two people with the same name from
+being merged accidentally. Older five-column exports remain importable; if an
+older CSV matches more than one existing profile, the import is stopped rather
+than guessing.
+
+Rolling files under `data/users/` include the stable profile ID in their
+filename, for example `James-Wintermute--<user-id>.csv`, so same-name profiles
+cannot overwrite each other. On the first successful v1.8.2 save, an older
+name-only rolling file is removed when it can be identified unambiguously.
 
 ### JSON backup
 
-**Backup JSON** exports the complete `users` array, including add-on visits.
-Imports validate names, home-country ISO codes, place codes and visit years,
-and merge valid data into matching profiles.
+**Backup JSON** exports the complete `users` array, including stable profile
+IDs and add-on visits. Imports validate names, home-country ISO codes, place
+codes and visit years. Existing profiles are matched by stable ID, so two people
+with the same name remain independent.
 
 ## Tests
 

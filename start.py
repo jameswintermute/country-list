@@ -17,6 +17,7 @@ import os
 import re
 import socket
 import sys
+import tempfile
 import threading
 import webbrowser
 from pathlib import Path
@@ -32,6 +33,7 @@ ADDONS_DIR = ROOT / "addons"
 _FILENAME_RE = re.compile(r"^[\w-]+\.csv$", re.UNICODE)
 _DATA_FILENAME_RE = re.compile(r"^[\w-]+\.(?:csv|json)$", re.IGNORECASE | re.UNICODE)
 _ADDON_FOLDER_RE = re.compile(r"^[\w-]+$", re.UNICODE)
+_ALLOWED_HOSTS = {"localhost", "127.0.0.1"}
 
 
 def parse_port(argv: list[str]) -> int:
@@ -75,6 +77,15 @@ def scan_addons() -> list[dict]:
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(info, dict):
+            continue
+        addon_id = info.get("id")
+        name = info.get("name")
+        if (
+            not _ADDON_FOLDER_RE.fullmatch(folder.name)
+            or addon_id != folder.name
+            or not isinstance(name, str)
+            or not name.strip()
+        ):
             continue
         info["_folder"] = folder.name
         addons.append(info)
@@ -133,6 +144,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; "
@@ -151,7 +166,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (ValueError, IndexError, TypeError):
             pass
 
+    def _allow_request(self, *, require_json: bool = False) -> bool:
+        host = self.headers.get("Host", "").strip()
+        try:
+            host_name = urlsplit(f"//{host}").hostname
+        except ValueError:
+            host_name = None
+        if host_name not in _ALLOWED_HOSTS:
+            self.send_error(403, "Localhost Host header required")
+            return False
+
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                parsed_origin = urlsplit(origin)
+            except ValueError:
+                parsed_origin = None
+            if (
+                parsed_origin is None
+                or parsed_origin.scheme != "http"
+                or parsed_origin.hostname not in _ALLOWED_HOSTS
+                or parsed_origin.netloc.lower() != host.lower()
+            ):
+                self.send_error(403, "Cross-site request rejected")
+                return False
+
+        if require_json:
+            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if content_type != "application/json":
+                self.send_error(415, "application/json required")
+                return False
+        return True
+
     def do_GET(self) -> None:
+        if not self._allow_request():
+            return
         request_path = urlsplit(self.path).path
         if request_path == "/favicon.ico":
             self.send_response(200)
@@ -218,10 +267,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        if self.path != "/api/save-user":
+        if not self._allow_request(require_json=True):
+            return
+        if urlsplit(self.path).path != "/api/save-user":
             self.send_error(404)
             return
 
+        temp_path: Path | None = None
         try:
             payload = self._read_json_body()
             filename = self._validate_filename(payload.get("filename"))
@@ -231,16 +283,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             DATA_USERS.mkdir(parents=True, exist_ok=True)
             target = DATA_USERS / filename
-            temp = DATA_USERS / f".{filename}.tmp"
-            temp.write_text(csv_text, encoding="utf-8")
-            os.replace(temp, target)
+            fd, temp_name = tempfile.mkstemp(
+                prefix=f".{filename}.", suffix=".tmp", dir=DATA_USERS
+            )
+            temp_path = Path(temp_name)
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                handle.write(csv_text)
+            os.replace(temp_path, target)
+            temp_path = None
             response = {"ok": True, "file": filename}
             self._json(200, json.dumps(response).encode())
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             self._json(400, json.dumps({"ok": False, "error": str(exc)}).encode())
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink()
+                except FileNotFoundError:
+                    pass
 
     def do_DELETE(self) -> None:
-        if self.path != "/api/delete-user":
+        if not self._allow_request(require_json=True):
+            return
+        if urlsplit(self.path).path != "/api/delete-user":
             self.send_error(404)
             return
 

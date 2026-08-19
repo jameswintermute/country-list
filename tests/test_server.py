@@ -38,8 +38,12 @@ class ServerTests(unittest.TestCase):
     def test_root_serves_app_but_repo_files_are_not_exposed(self):
         status, headers, body = self.request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn(b"Country List v1.8.1", body)
+        self.assertIn(b"Country List v1.8.2", body)
         self.assertEqual(headers.get("X-Frame-Options"), "DENY")
+        self.assertEqual(headers.get("Cross-Origin-Opener-Policy"), "same-origin")
+        self.assertEqual(headers.get("Cross-Origin-Resource-Policy"), "same-origin")
+        self.assertIn("geolocation=()", headers.get("Permissions-Policy", ""))
+        self.assertEqual(headers.get("X-Robots-Tag"), "noindex, nofollow")
 
         for path in ("/README.md", "/data/users/private.csv", "/.git/config", "/../README.md"):
             status, _, _ = self.request("GET", path)
@@ -81,6 +85,48 @@ class ServerTests(unittest.TestCase):
                 {"Content-Type": "application/json", "Content-Length": str(len(payload))},
             )
             self.assertEqual(status, 400, filename)
+
+
+    def test_local_request_guards_block_cross_site_writes(self):
+        payload = json.dumps({"filename": "James-Wintermute.csv", "csv": "x"}).encode()
+
+        status, _, _ = self.request(
+            "POST", "/api/save-user", payload,
+            {
+                "Content-Type": "text/plain",
+                "Content-Length": str(len(payload)),
+            },
+        )
+        self.assertEqual(status, 415)
+
+        status, _, _ = self.request(
+            "POST", "/api/save-user", payload,
+            {
+                "Content-Type": "application/json",
+                "Content-Length": str(len(payload)),
+                "Origin": "https://evil.example",
+            },
+        )
+        self.assertEqual(status, 403)
+
+        status, _, _ = self.request(
+            "GET", "/api/data-files", headers={"Host": "evil.example"}
+        )
+        self.assertEqual(status, 403)
+
+    def test_same_origin_json_write_is_allowed(self):
+        payload = json.dumps({"filename": "James-Wintermute.csv", "csv": "x"}).encode()
+        host = f"{start.HOST}:{self.port}"
+        status, _, body = self.request(
+            "POST", "/api/save-user", payload,
+            {
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Length": str(len(payload)),
+                "Origin": f"http://{host}",
+                "Host": host,
+            },
+        )
+        self.assertEqual(status, 200, body)
 
     def test_request_body_limit(self):
         # The server rejects based on Content-Length before reading the body.
